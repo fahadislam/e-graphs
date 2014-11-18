@@ -1,0 +1,14 @@
+<launch>
+
+  <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0 0 0 0 0 0 map base_link 10" />
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find egraph_xytheta)/maps/willow.pgm 0.025" />
+  <node name="egraphXYThetaNode" pkg="egraph_xytheta" type="egraphXYThetaNode" output="screen" >
+    <rosparam file="$(find egraph_xytheta)/config/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find egraph_xytheta)/config/global_costmap_params.yaml" command="load" />
+    <param name="primitive_filename" value="$(find egraph_xytheta)/config/pr2.mprim" />
+
+    <!-- <param name="egraph_filename" value="$(find egraph_xytheta)/xytheta_egraph.eg" /> -->
+    <param name="egraph_filename" value="" />
+  </node>
+
+</launch>

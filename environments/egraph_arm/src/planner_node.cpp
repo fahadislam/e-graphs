@@ -1,13 +1,13 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
- * 
+ *
  *  Copyright (c) 2012, Willow Garage, Inc.
  *  All rights reserved.
- * 
+ *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
  *  are met:
- * 
+ *
  *   * Redistributions of source code must retain the above copyright
  *     notice, this list of conditions and the following disclaimer.
  *   * Redistributions in binary form must reproduce the above
@@ -17,7 +17,7 @@
  *   * Neither the name of Willow Garage, Inc. nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
- * 
+ *
  *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -222,7 +222,7 @@ bool EGraphArmPlannerNode::getInitialConfiguration(ros::NodeHandle &nh, arm_navi
 
   double torso_z;
   ph.param("torso_z", torso_z, 0.0);
-  
+
   //multi_dof_joint_state
   if(nh.hasParam("initial_configuration/multi_dof_joint_state"))
   {
@@ -335,7 +335,7 @@ EGraphArmPlannerNode::EGraphArmPlannerNode() : ph("~") {
     exit(1);
 
   planner_->setTorsoZ(torso_z);
-  
+
   // collision objects
   scene.reset(new arm_navigation_msgs::PlanningScene);
   if(!object_filename.empty())
@@ -391,12 +391,12 @@ bool EGraphArmPlannerNode::callPlanner(egraph_arm::GetArmPlan::Request& req, egr
   fillConstraint(req.goal, planning_frame, arm_req.motion_plan_request.goal_constraints);
   arm_req.motion_plan_request.allowed_planning_time.fromSec(5.0);
 
-  // fill start state 
+  // fill start state
   if(!getInitialConfiguration(ph, scene->robot_state, req.start, req.names)){
     ROS_ERROR("Failed to get initial configuration.");
     return false;
   }
-  scene->robot_state.joint_state.header.frame_id = planning_frame;  
+  scene->robot_state.joint_state.header.frame_id = planning_frame;
   arm_req.motion_plan_request.start_state = scene->robot_state;
 
   // set planning scene
@@ -412,7 +412,7 @@ bool EGraphArmPlannerNode::callPlanner(egraph_arm::GetArmPlan::Request& req, egr
   params.return_first_solution = false;
   params.use_egraph = req.use_egraph;
   params.feedback_path = req.feedback_paths;
- 
+
   // plan
   ROS_INFO("Calling solve...");
   if(!planner_->solve(scene, params, arm_req, arm_res)){

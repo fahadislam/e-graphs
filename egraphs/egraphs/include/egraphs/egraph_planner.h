@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2013, Mike Phillips and Maxim Likhachev
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
  *     * Neither the name of the University of Pennsylvania nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -35,6 +35,7 @@
 #include <egraphs/planner_state.h>
 
 //class LazyAEGListElement;
+
 
 class EGraphReplanParams : public ReplanParams{
   public:
@@ -72,7 +73,7 @@ class LazyAEGPlanner : public SBPLPlanner{
             return -1;
         };
 
-        virtual int replan(int start, vector<int>* solution_stateIDs_V, 
+        virtual int replan(int start, vector<int>* solution_stateIDs_V,
                            EGraphReplanParams params, int* solcost);
         virtual int replan(std::vector<int>* solution_stateIDs_V, EGraphReplanParams params);
         virtual int replan(std::vector<int>* solution_stateIDs_V, EGraphReplanParams params, int* solcost);
@@ -96,7 +97,7 @@ class LazyAEGPlanner : public SBPLPlanner{
             printf("Not supported. Use ReplanParams");
         };
 
-        LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bforwardsearch, 
+        LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bforwardsearch,
                        EGraphManagerPtr egraph_mgr);
         ~LazyAEGPlanner(){};
 
@@ -108,9 +109,11 @@ class LazyAEGPlanner : public SBPLPlanner{
 
     protected:
         //data structures (open and incons lists)
-        CHeap heap;
-        vector<LazyAEGState*> incons;
-        vector<LazyAEGState*> states;
+
+        //fadi
+        std::vector<CHeap> heaps;
+        std::vector<std::vector<LazyAEGState*>> incons;
+        std::vector<std::vector<LazyAEGState*>> states;
 
         EGraphReplanParams params;
         EGraphManagerPtr egraph_mgr_;
@@ -118,9 +121,12 @@ class LazyAEGPlanner : public SBPLPlanner{
         bool bforwardsearch; //if true, then search proceeds forward, otherwise backward
         LazyAEGState goal_state;
         LazyAEGState* start_state;
+        std::vector<LazyAEGState*> island_state;     //fadi
         //int goal_state_id;
         int start_state_id;
+        std::vector<int> island_state_id;       //fadi
 
+        int num_islands;
         //search member variables
         double eps;
         double eps_satisfied;
@@ -146,15 +152,15 @@ class LazyAEGPlanner : public SBPLPlanner{
 
         bool interruptFlag;
 
-        bool reconstructSuccs(LazyAEGState* state, LazyAEGState*& next_state, 
+        bool reconstructSuccs(LazyAEGState* state, LazyAEGState*& next_state,
                               vector<int>* wholePathIds, vector<int>* costs);
 
-        virtual LazyAEGState* GetState(int id);
-        virtual void ExpandState(LazyAEGState* parent);
-        virtual void EvaluateState(LazyAEGState* parent);
-        void getNextLazyElement(LazyAEGState* state);
-        void insertLazyList(LazyAEGState* state, LazyAEGState* parent, int edgeCost, bool isTrueCost, EdgeType edgeType, int snap_midpoint);
-        void putStateInHeap(LazyAEGState* state);
+        virtual LazyAEGState* GetState(int q_id, int id);
+        virtual void ExpandState(int q_id, LazyAEGState* parent);
+        virtual void EvaluateState(int q_id, LazyAEGState* parent);
+        void getNextLazyElement(int q_id, LazyAEGState* state);
+        void insertLazyList(int q_id, LazyAEGState* state, LazyAEGState* parent, int edgeCost, bool isTrueCost, EdgeType edgeType, int snap_midpoint);
+        void putStateInHeap(int q_id, LazyAEGState* state);
         void updateGoal(LazyAEGState* state);
 
         virtual int ImprovePath();

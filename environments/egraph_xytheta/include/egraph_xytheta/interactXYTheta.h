@@ -8,9 +8,11 @@
 #include <tf/transform_listener.h>
 #include <egraph_xytheta/GetXYThetaPlan.h>
 
+#define num_islands 2
 class ControlPlanner{
   public:
     void callPlanner();
+    void plannerThread(int param);
     void processFeedback(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback);
     ControlPlanner();
 

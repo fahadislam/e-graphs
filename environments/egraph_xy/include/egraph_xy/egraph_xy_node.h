@@ -15,7 +15,7 @@ class EGraphXYNode{
 
   private:
     costmap_2d::Costmap2DROS* costmap_ros_;
-    costmap_2d::Costmap2D cost_map_;  
+    costmap_2d::Costmap2D cost_map_;
 
     EGraphXY* env_;
     EGraph* egraph_;

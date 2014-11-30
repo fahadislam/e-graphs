@@ -13,7 +13,7 @@
 class EGraphXYThetaNode{
   public:
     EGraphXYThetaNode(costmap_2d::Costmap2DROS* costmap_ros);
-    bool makePlan(egraph_xytheta::GetXYThetaPlan::Request& req, 
+    bool makePlan(egraph_xytheta::GetXYThetaPlan::Request& req,
                   egraph_xytheta::GetXYThetaPlan::Response& res);
 
   private:
@@ -37,6 +37,7 @@ class EGraphXYThetaNode{
 
     ros::Publisher plan_pub_;
     ros::ServiceServer plan_service_;
+    ros::Publisher marker_pub;
 
     ros::Subscriber interrupt_sub_;
     void interruptPlannerCallback(std_msgs::EmptyConstPtr);

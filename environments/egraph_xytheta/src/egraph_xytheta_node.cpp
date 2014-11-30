@@ -1,5 +1,6 @@
 #include <egraph_xytheta/egraph_xytheta_node.h>
 #include <nav_msgs/Path.h>
+#include <stdio.h>
 
 using namespace std;
 
@@ -85,6 +86,7 @@ EGraphXYThetaNode::EGraphXYThetaNode(costmap_2d::Costmap2DROS* costmap_ros) {
   interrupt_sub_ = nh.subscribe("/sbpl_planning/interrupt", 1, &EGraphXYThetaNode::interruptPlannerCallback,this);
   plan_pub_ = nh.advertise<nav_msgs::Path>("plan", 1);
   plan_service_ = nh.advertiseService("/sbpl_planning/plan_path",&EGraphXYThetaNode::makePlan,this);
+  marker_pub = nh.advertise<visualization_msgs::Marker>("visualization_marker", 10);
 }
 
 void EGraphXYThetaNode::interruptPlannerCallback(std_msgs::EmptyConstPtr){
@@ -175,7 +177,7 @@ bool EGraphXYThetaNode::makePlan(egraph_xytheta::GetXYThetaPlan::Request& req, e
 
   ros::Time plan_time = ros::Time::now();
 
-  //create a message for the plan 
+  //create a message for the plan
   nav_msgs::Path gui_path;
   gui_path.poses.resize(solution_stateIDs.size());
   gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
@@ -206,6 +208,77 @@ bool EGraphXYThetaNode::makePlan(egraph_xytheta::GetXYThetaPlan::Request& req, e
     gui_path.poses[i].pose.position.z = pose.pose.position.z;
   }
   plan_pub_.publish(gui_path);
+
+
+// visualize path as marker
+  ros::Rate r(30);
+
+  visualization_msgs::Marker points, line_strip, line_list;
+  points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = costmap_ros_->getGlobalFrameID();
+  points.header.stamp = plan_time;
+
+  string ns_plan;          // string which will contain the result
+  ostringstream convert;   // stream used for the conversion
+  convert << rand();      // insert the textual representation of 'Number' in the characters in the stream
+  ns_plan = convert.str();
+
+  points.ns = line_strip.ns = line_list.ns = ns_plan;
+  points.action = line_strip.action = line_list.action = visualization_msgs::Marker::ADD;
+  points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1.0;
+
+  points.id = 0;
+  line_strip.id = 1;
+  line_list.id = 2;
+
+  points.type = visualization_msgs::Marker::POINTS;
+  line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+  line_list.type = visualization_msgs::Marker::LINE_LIST;
+
+  // POINTS markers use x and y scale for width/height respectively
+  points.scale.x = 0.2;
+  points.scale.y = 0.2;
+
+  // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+  line_strip.scale.x = 0.01;
+  line_list.scale.x = 0.1;
+
+  // Points are green
+  points.color.g = 1.0f;
+  points.color.a = 1.0;
+
+  // Line strip is blue
+  line_strip.color.r = float(rand()%10)/10.0;
+  line_strip.color.b = float(rand()%10)/10.0;
+  line_strip.color.g = float(rand()%10)/10.0;
+  line_strip.color.a = 1.0;
+
+  // Line list is red
+  line_list.color.r = 1.0;
+  line_list.color.a = 1.0;
+
+  // Create the vertices for the points and lines
+  for(unsigned int i=0; i<solution_stateIDs.size(); i++){
+
+    geometry_msgs::Point p;
+    p.x = gui_path.poses[i].pose.position.x;
+    p.y = gui_path.poses[i].pose.position.y;
+    p.z = gui_path.poses[i].pose.position.z;
+
+    points.points.push_back(p);
+    line_strip.points.push_back(p);
+
+    // The line list needs two points for each line
+    line_list.points.push_back(p);
+    p.z += 1.0;
+    line_list.points.push_back(p);
+  }
+
+  // marker_pub.publish(points);
+  marker_pub.publish(line_strip);
+  // marker_pub.publish(line_list);
+
+  r.sleep();
+// ////////////////////end visualize path
 
   egraph_vis_->visualize();
 

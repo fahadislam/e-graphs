@@ -78,7 +78,8 @@ EGraphXYThetaNode::EGraphXYThetaNode(costmap_2d::Costmap2DROS* costmap_ros) {
 
   heur_ = new EGraph2dGridHeuristic(*env_, costmap_ros_->getSizeInCellsX(), costmap_ros_->getSizeInCellsY(), NAVXYTHETALAT_COSTMULT_MTOMM/nominalvel_mpersecs);
   egraph_mgr_ = new EGraphManager<vector<int> >(egraph_, env_, heur_);
-  planner_ = new LazyAEGPlanner<vector<int> >(env_, true, egraph_mgr_);
+  num_islands = 2;
+  planner_ = new LazyAEGPlanner<vector<int> >(env_, true, egraph_mgr_, num_islands);
   egraph_vis_ = new EGraphVisualizer(egraph_, env_);
 
   egraph_vis_->visualize();
@@ -118,6 +119,16 @@ bool EGraphXYThetaNode::makePlan(egraph_xytheta::GetXYThetaPlan::Request& req, e
   try{
     int ret = env_->SetStart(req.start_x - cost_map_.getOriginX(), req.start_y - cost_map_.getOriginY(), req.start_theta);
     if(ret < 0 || planner_->set_start(ret) == 0){
+      ROS_ERROR("ERROR: failed to set start state\n");
+      return false;
+    }
+    ret = env_->SetStart(req.start_x - cost_map_.getOriginX(), req.start_y - cost_map_.getOriginY(), req.start_theta);
+    if(ret < 0 || planner_->set_islands(0,ret) == 0){
+      ROS_ERROR("ERROR: failed to set start state\n");
+      return false;
+    }
+    ret = env_->SetStart(req.start_x-0.5 - cost_map_.getOriginX(), req.start_y - cost_map_.getOriginY(), req.start_theta);
+    if(ret < 0 || planner_->set_islands(1,ret) == 0){
       ROS_ERROR("ERROR: failed to set start state\n");
       return false;
     }
@@ -161,7 +172,7 @@ bool EGraphXYThetaNode::makePlan(egraph_xytheta::GetXYThetaPlan::Request& req, e
   params.use_egraph = req.use_egraph;
   params.feedback_path = req.feedback_path;
 
-  vector<int> solution_stateIDs;
+  vector<vector<int>> solution_stateIDs;
   bool ret = planner_->replan(&solution_stateIDs, params);
 
   map<string,double> stats = planner_->getStats();
@@ -178,107 +189,112 @@ bool EGraphXYThetaNode::makePlan(egraph_xytheta::GetXYThetaPlan::Request& req, e
   ros::Time plan_time = ros::Time::now();
 
   //create a message for the plan
-  nav_msgs::Path gui_path;
-  gui_path.poses.resize(solution_stateIDs.size());
-  gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-  gui_path.header.stamp = plan_time;
-  for(unsigned int i=0; i<solution_stateIDs.size(); i++){
-    geometry_msgs::PoseStamped pose;
-    pose.header.stamp = plan_time;
-    pose.header.frame_id = costmap_ros_->getGlobalFrameID();
 
-    vector<double> coord(3,0);
-    env_->getCoord(solution_stateIDs[i],coord);
+  for(int g_id = 0; g_id < num_islands; g_id++){
+    nav_msgs::Path gui_path;
+    gui_path.poses.resize(solution_stateIDs[g_id].size());
+    gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
+    gui_path.header.stamp = plan_time;
+    for(unsigned int i=0; i<solution_stateIDs[g_id].size(); i++){
+      geometry_msgs::PoseStamped pose;
+      pose.header.stamp = plan_time;
+      pose.header.frame_id = costmap_ros_->getGlobalFrameID();
 
-    pose.pose.position.x = coord[0] + cost_map_.getOriginX();
-    pose.pose.position.y = coord[1] + cost_map_.getOriginY();
-    pose.pose.position.z = 0;
+      vector<double> coord(3,0);
+      env_->getCoord(solution_stateIDs[g_id][i],coord);
 
-    tf::Quaternion temp;
-    temp.setEulerZYX(coord[2],0,0);
-    pose.pose.orientation.x = temp.getX();
-    pose.pose.orientation.y = temp.getY();
-    pose.pose.orientation.z = temp.getZ();
-    pose.pose.orientation.w = temp.getW();
+      pose.pose.position.x = coord[0] + cost_map_.getOriginX();
+      pose.pose.position.y = coord[1] + cost_map_.getOriginY();
+      pose.pose.position.z = 0;
 
-    res.path.push_back(pose);
+      tf::Quaternion temp;
+      temp.setEulerZYX(coord[2],0,0);
+      pose.pose.orientation.x = temp.getX();
+      pose.pose.orientation.y = temp.getY();
+      pose.pose.orientation.z = temp.getZ();
+      pose.pose.orientation.w = temp.getW();
 
-    gui_path.poses[i].pose.position.x = pose.pose.position.x;
-    gui_path.poses[i].pose.position.y = pose.pose.position.y;
-    gui_path.poses[i].pose.position.z = pose.pose.position.z;
+      res.path.push_back(pose);
+
+      gui_path.poses[i].pose.position.x = pose.pose.position.x;
+      gui_path.poses[i].pose.position.y = pose.pose.position.y;
+      gui_path.poses[i].pose.position.z = pose.pose.position.z;
+    }
+    plan_pub_.publish(gui_path);
+
+
+  // visualize path as marker
+    ros::Rate r(30);
+
+    visualization_msgs::Marker points, line_strip, line_list;
+    points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = costmap_ros_->getGlobalFrameID();
+    points.header.stamp = plan_time;
+
+    string ns_plan;          // string which will contain the result
+    ostringstream convert;   // stream used for the conversion
+    convert << rand();      // insert the textual representation of 'Number' in the characters in the stream
+    ns_plan = convert.str();
+
+    points.ns = line_strip.ns = line_list.ns = ns_plan;
+    points.action = line_strip.action = line_list.action = visualization_msgs::Marker::ADD;
+    points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1.0;
+
+    points.id = 0;
+    line_strip.id = 1;
+    line_list.id = 2;
+
+    points.type = visualization_msgs::Marker::POINTS;
+    line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+    line_list.type = visualization_msgs::Marker::LINE_LIST;
+
+    // POINTS markers use x and y scale for width/height respectively
+    points.scale.x = 0.2;
+    points.scale.y = 0.2;
+
+    // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+    line_strip.scale.x = 0.01;
+    line_list.scale.x = 0.1;
+
+    // Points are green
+    points.color.g = 1.0f;
+    points.color.a = 1.0;
+
+    // Line strip is blue
+    line_strip.color.r = float(rand()%10)/10.0;
+    line_strip.color.b = float(rand()%10)/10.0;
+    line_strip.color.g = float(rand()%10)/10.0;
+    line_strip.color.a = 1.0;
+
+    // Line list is red
+    line_list.color.r = 1.0;
+    line_list.color.a = 1.0;
+
+    // Create the vertices for the points and lines
+    for(unsigned int i=0; i<solution_stateIDs[g_id].size(); i++){
+
+      geometry_msgs::Point p;
+      p.x = gui_path.poses[i].pose.position.x;
+      p.y = gui_path.poses[i].pose.position.y;
+      p.z = gui_path.poses[i].pose.position.z;
+
+      points.points.push_back(p);
+      line_strip.points.push_back(p);
+
+      // The line list needs two points for each line
+      line_list.points.push_back(p);
+      p.z += 1.0;
+      line_list.points.push_back(p);
+    }
+
+    // marker_pub.publish(points);
+    marker_pub.publish(line_strip);
+    // marker_pub.publish(line_list);
+
+    r.sleep();
+    // ////////////////////end visualize path
   }
-  plan_pub_.publish(gui_path);
 
 
-// visualize path as marker
-  ros::Rate r(30);
-
-  visualization_msgs::Marker points, line_strip, line_list;
-  points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = costmap_ros_->getGlobalFrameID();
-  points.header.stamp = plan_time;
-
-  string ns_plan;          // string which will contain the result
-  ostringstream convert;   // stream used for the conversion
-  convert << rand();      // insert the textual representation of 'Number' in the characters in the stream
-  ns_plan = convert.str();
-
-  points.ns = line_strip.ns = line_list.ns = ns_plan;
-  points.action = line_strip.action = line_list.action = visualization_msgs::Marker::ADD;
-  points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1.0;
-
-  points.id = 0;
-  line_strip.id = 1;
-  line_list.id = 2;
-
-  points.type = visualization_msgs::Marker::POINTS;
-  line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-  line_list.type = visualization_msgs::Marker::LINE_LIST;
-
-  // POINTS markers use x and y scale for width/height respectively
-  points.scale.x = 0.2;
-  points.scale.y = 0.2;
-
-  // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
-  line_strip.scale.x = 0.01;
-  line_list.scale.x = 0.1;
-
-  // Points are green
-  points.color.g = 1.0f;
-  points.color.a = 1.0;
-
-  // Line strip is blue
-  line_strip.color.r = float(rand()%10)/10.0;
-  line_strip.color.b = float(rand()%10)/10.0;
-  line_strip.color.g = float(rand()%10)/10.0;
-  line_strip.color.a = 1.0;
-
-  // Line list is red
-  line_list.color.r = 1.0;
-  line_list.color.a = 1.0;
-
-  // Create the vertices for the points and lines
-  for(unsigned int i=0; i<solution_stateIDs.size(); i++){
-
-    geometry_msgs::Point p;
-    p.x = gui_path.poses[i].pose.position.x;
-    p.y = gui_path.poses[i].pose.position.y;
-    p.z = gui_path.poses[i].pose.position.z;
-
-    points.points.push_back(p);
-    line_strip.points.push_back(p);
-
-    // The line list needs two points for each line
-    line_list.points.push_back(p);
-    p.z += 1.0;
-    line_list.points.push_back(p);
-  }
-
-  // marker_pub.publish(points);
-  marker_pub.publish(line_strip);
-  // marker_pub.publish(line_list);
-
-  r.sleep();
-// ////////////////////end visualize path
 
   egraph_vis_->visualize();
 

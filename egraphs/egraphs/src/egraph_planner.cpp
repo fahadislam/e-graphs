@@ -34,7 +34,7 @@ using namespace std;
 
 template <typename HeuristicType>
 LazyAEGPlanner<HeuristicType>::LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bSearchForward,
-                               EGraphManagerPtr egraph_mgr) :
+                               EGraphManagerPtr egraph_mgr, int num_isls) :
   params(0.0), egraph_mgr_(egraph_mgr){ //, goal_state(NULL) {
   //bforwardsearch = bSearchForward;
   if(!bSearchForward)
@@ -43,7 +43,7 @@ LazyAEGPlanner<HeuristicType>::LazyAEGPlanner(DiscreteSpaceInformation* environm
   environment_ = environment;
   replan_number = 0;
 
-  num_islands = 2;
+  num_islands = num_isls;
   heaps.resize(num_islands);
   incons.resize(num_islands);
   states.resize(num_islands);  //fadi
@@ -437,101 +437,104 @@ bool LazyAEGPlanner<HeuristicType>::reconstructSuccs(LazyAEGState* state,
 }
 
 template <typename HeuristicType>
-vector<int> LazyAEGPlanner<HeuristicType>::GetSearchPath(int& solcost){
+vector<vector<int>> LazyAEGPlanner<HeuristicType>::GetSearchPath(int& solcost){
     clock_t reconstruct_t0 = clock();
 
     bool print = false;
-    vector<int> wholePathIds;
-    vector<int> costs;
+    vector<vector<int>> wholePathIds(num_islands);
+    vector<vector<int>> costs(num_islands);
     LazyAEGState* state;
     LazyAEGState* final_state;
 
-    for (int g_id=0;g_id<num_islands;g_id++)
-    if(bforwardsearch){
-        state = &goal_state;
-        final_state = island_state[0];    //fadi
-    } else {
-        state = island_state[0];
-        final_state = &goal_state;
-    }
-
-    wholePathIds.push_back(state->id);
-    solcost = 0;
-    int shortcut_count = 0;
-
-    while(state->id != final_state->id){
-        if(state->expanded_best_parent == NULL){
-            printf("a state along the path has no parent!\n");
-            assert(false);
-        }
-        if(state->v == INFINITECOST){
-            printf("a state along the path has an infinite g-value!\n");
-            printf("inf state = %d\n",state->id);
-            assert(false);
+    for (int g_id=0;g_id<num_islands;g_id++){
+      if(bforwardsearch){
+            state = &goal_state;
+            final_state = island_state[g_id];    //fadi
+        } else {
+            state = island_state[g_id];
+            final_state = &goal_state;
         }
 
-        LazyAEGState* next_state;
-        if(state->expanded_best_edge_type == EdgeType::SNAP){
-          assert(egraph_mgr_->reconstructSnap(state, next_state, &wholePathIds, &costs));
-          if(print)
-            ROS_INFO("snap edge %d %d %d", costs.back(), state->id, wholePathIds.back());
-        }
-        else if(state->expanded_best_edge_type == EdgeType::NORMAL){
-          bool ret = reconstructSuccs(state, next_state, &wholePathIds, &costs);
-          assert(ret);
-          if(print)
-            ROS_INFO("normal edge %d %d %d", costs.back(), state->id, wholePathIds.back());
-        }
-        else if(state->expanded_best_edge_type == EdgeType::DIRECT_SHORTCUT){
-          int sc_cost;
-          assert(egraph_mgr_->reconstructDirectShortcuts(state, next_state, &wholePathIds, &costs, shortcut_count, sc_cost));
-          if(print)
-            ROS_INFO("shortcut edge %d %d %d", sc_cost, state->id, wholePathIds.back());
-        }
-        else if(state->expanded_best_edge_type == EdgeType::SNAP_DIRECT_SHORTCUT){
-          int totalCost;
-          assert(egraph_mgr_->reconstructSnapShortcut(state, next_state, &wholePathIds, &costs, totalCost));
-          if(print)
-            ROS_INFO("snap shortcut edge %d %d %d", totalCost, state->id, wholePathIds.back());
-        }
-        else
-          assert(false);
-        assert(next_state == state->expanded_best_parent);
-        assert(wholePathIds.back() == state->expanded_best_parent->id);
-        state = next_state;
-    }
+        wholePathIds[g_id].push_back(state->id);
+        solcost = 0;
+        int shortcut_count = 0;
 
-    //if we searched forward then the path reconstruction
-    //worked backward from the goal, so we have to reverse the path
-    if(bforwardsearch){
-        std::reverse(wholePathIds.begin(), wholePathIds.end());
-        std::reverse(costs.begin(), costs.end());
-    }
-    solcost = std::accumulate(costs.begin(), costs.end(), 0);
+        printf("iiiiiiiiiiii %d\n", g_id);
+        while(state->id != final_state->id){
+            if(state->expanded_best_parent == NULL){
+                printf("a state along the path has no parent!\n");
+                assert(false);
+            }
+            if(state->v == INFINITECOST){
+                printf("a state along the path has an infinite g-value!\n");
+                printf("inf state = %d\n",state->id);
+                assert(false);
+            }
 
-    clock_t reconstruct_t1 = clock();
-    reconstructTime = double(reconstruct_t1 - reconstruct_t0)/CLOCKS_PER_SEC;
+            LazyAEGState* next_state;
+            if(state->expanded_best_edge_type == EdgeType::SNAP){
+              assert(egraph_mgr_->reconstructSnap(state, next_state, &wholePathIds[g_id], &costs[g_id]));
+              if(print)
+                ROS_INFO("snap edge %d %d %d", costs[g_id].back(), state->id, wholePathIds[g_id].back());
+            }
+            else if(state->expanded_best_edge_type == EdgeType::NORMAL){
+              bool ret = reconstructSuccs(state, next_state, &wholePathIds[g_id], &costs[g_id]);
+              assert(ret);
+              if(print)
+                ROS_INFO("normal edge %d %d %d", costs[g_id].back(), state->id, wholePathIds[g_id].back());
+            }
+            else if(state->expanded_best_edge_type == EdgeType::DIRECT_SHORTCUT){
+              int sc_cost;
+              assert(egraph_mgr_->reconstructDirectShortcuts(state, next_state, &wholePathIds[g_id], &costs[g_id], shortcut_count, sc_cost));
+              if(print)
+                ROS_INFO("shortcut edge %d %d %d", sc_cost, state->id, wholePathIds[g_id].back());
+            }
+            else if(state->expanded_best_edge_type == EdgeType::SNAP_DIRECT_SHORTCUT){
+              int totalCost;
+              assert(egraph_mgr_->reconstructSnapShortcut(state, next_state, &wholePathIds[g_id], &costs[g_id], totalCost));
+              if(print)
+                ROS_INFO("snap shortcut edge %d %d %d", totalCost, state->id, wholePathIds[g_id].back());
+            }
+            else
+              assert(false);
+            assert(next_state == state->expanded_best_parent);
+            assert(wholePathIds[g_id].back() == state->expanded_best_parent->id);
+            state = next_state;
+        }
+        //if we searched forward then the path reconstruction
+        //worked backward from the goal, so we have to reverse the path
+        if(bforwardsearch){
+            std::reverse(wholePathIds[g_id].begin(), wholePathIds[g_id].end());
+            std::reverse(costs[g_id].begin(), costs[g_id].end());
+        }
+        solcost = std::accumulate(costs[g_id].begin(), costs[g_id].end(), 0);
 
-    /*
-    // if we're using lazy evaluation, we always want to feedback the path
-    // regardless if it's valid
-    if (params.feedback_path || params.use_lazy_validation){
-        egraph_mgr_->storeLastPath(wholePathIds, costs);
-    }
-    if (params.use_lazy_validation){
-        egraph_mgr_->feedbackLastPath();
-    }
-    */
+        clock_t reconstruct_t1 = clock();
+        reconstructTime = double(reconstruct_t1 - reconstruct_t0)/CLOCKS_PER_SEC;
 
-    clock_t feedback_t0 = clock();
-    if (params.feedback_path){
-        egraph_mgr_->storeLastPath(wholePathIds, costs);
-        egraph_mgr_->feedbackLastPath();
+        /*
+        // if we're using lazy evaluation, we always want to feedback the path
+        // regardless if it's valid
+        if (params.feedback_path || params.use_lazy_validation){
+            egraph_mgr_->storeLastPath(wholePathIds, costs);
+        }
+        if (params.use_lazy_validation){
+            egraph_mgr_->feedbackLastPath();
+        }
+        */
+
+        clock_t feedback_t0 = clock();
+        if (params.feedback_path){
+            egraph_mgr_->storeLastPath(wholePathIds[g_id], costs[g_id]);
+            egraph_mgr_->feedbackLastPath();
+        }
+        clock_t feedback_t1 = clock();
+        feedbackPathTime = double(feedback_t1-feedback_t0)/CLOCKS_PER_SEC;
+        //egraph_mgr_->printVector(wholePathIds);
+
     }
-    clock_t feedback_t1 = clock();
-    feedbackPathTime = double(feedback_t1-feedback_t0)/CLOCKS_PER_SEC;
-    //egraph_mgr_->printVector(wholePathIds);
     return wholePathIds;
+
 }
 
 template <typename HeuristicType>
@@ -627,7 +630,7 @@ void LazyAEGPlanner<HeuristicType>::initializeSearch(){
 }
 
 template <typename HeuristicType>
-bool LazyAEGPlanner<HeuristicType>::Search(vector<int>& pathIds, int& PathCost){
+bool LazyAEGPlanner<HeuristicType>::Search(vector<vector<int>>& pathIds, int& PathCost){
   CKey key;
   TimeStarted = clock();
 
@@ -727,20 +730,20 @@ void LazyAEGPlanner<HeuristicType>::interrupt(){
 }
 
 template <typename HeuristicType>
-int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGraphReplanParams p){
+int LazyAEGPlanner<HeuristicType>::replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams p){
   int solcost;
   return replan(solution_stateIDs_V, p, &solcost);
 }
 
 template <typename HeuristicType>
-int LazyAEGPlanner<HeuristicType>::replan(int start, vector<int>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
-  set_start(start);
+int LazyAEGPlanner<HeuristicType>::replan(int start, vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
+  set_start(start); //todo
   //set_goal(goal);
   return replan(solution_stateIDs_V, p, solcost);
 }
 
 template <typename HeuristicType>
-int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
+int LazyAEGPlanner<HeuristicType>::replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
   clock_t replan_t0 = clock();
   printf("planner: replan called\n");
   params = p;
@@ -760,7 +763,7 @@ int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGra
   }
 
   //plan
-  vector<int> pathIds;
+  vector<vector<int>> pathIds;
   int PathCost;
   bool solnFound = Search(pathIds, PathCost);
 
@@ -835,14 +838,22 @@ template <typename HeuristicType>
 int LazyAEGPlanner<HeuristicType>::set_start(int id){
   //printf("planner: setting start to %d\n", id);
   //if(bforwardsearch)
-  for (int q_id=0; q_id < num_islands; q_id++)
-    island_state_id[q_id] = id;  //todo
+  // for (int q_id=0; q_id < num_islands; q_id++)
+  //  island_state_id[q_id] = id;
 
-  start_state_id = id;
+
+  start_state_id = id;    //todo
   //else
     //goal_state_id = id;
   return 1;
 }
+
+template <typename HeuristicType>
+int LazyAEGPlanner<HeuristicType>::set_islands(int q_id, int id){
+  island_state_id[q_id] = id;
+  return 1;
+}
+
 
 template <typename HeuristicType>
 void LazyAEGPlanner<HeuristicType>::feedback_last_path(){

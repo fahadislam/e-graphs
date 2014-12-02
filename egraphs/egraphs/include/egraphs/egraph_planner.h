@@ -73,10 +73,10 @@ class LazyAEGPlanner : public SBPLPlanner{
             return -1;
         };
 
-        virtual int replan(int start, vector<int>* solution_stateIDs_V,
+        virtual int replan(int start, vector<vector<int>>* solution_stateIDs_V,
                            EGraphReplanParams params, int* solcost);
-        virtual int replan(std::vector<int>* solution_stateIDs_V, EGraphReplanParams params);
-        virtual int replan(std::vector<int>* solution_stateIDs_V, EGraphReplanParams params, int* solcost);
+        virtual int replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams params);
+        virtual int replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams params, int* solcost);
 
         virtual int set_goal(int goal_stateID){ROS_WARN("set_goal is not used. we assume the goal conditions have been set in the environment and use EGraphable::isGoal");return 1;};
         virtual int set_goal();
@@ -98,7 +98,7 @@ class LazyAEGPlanner : public SBPLPlanner{
         };
 
         LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bforwardsearch,
-                       EGraphManagerPtr egraph_mgr);
+                       EGraphManagerPtr egraph_mgr, int num_isls);
         ~LazyAEGPlanner(){};
 
         map<string,double> getStats(){return stat_map_;};
@@ -107,6 +107,7 @@ class LazyAEGPlanner : public SBPLPlanner{
         void setLazyValidation(bool b){ params.use_lazy_validation = b; };
         void setValidateDuringPlanning(bool b){ params.validate_during_planning = b; };
 
+        int set_islands(int q_id, int id);  //fadi
     protected:
         //data structures (open and incons lists)
 
@@ -165,12 +166,12 @@ class LazyAEGPlanner : public SBPLPlanner{
 
         virtual int ImprovePath();
 
-        virtual vector<int> GetSearchPath(int& solcost);
+        virtual vector<vector<int>> GetSearchPath(int& solcost);
 
         virtual bool outOfTime();
         virtual void initializeSearch();
         virtual void prepareNextSearchIteration();
-        virtual bool Search(vector<int>& pathIds, int & PathCost);
+        virtual bool Search(vector<vector<int>>& pathIds, int & PathCost);
 
 };
 

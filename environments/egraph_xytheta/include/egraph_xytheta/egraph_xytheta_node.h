@@ -40,6 +40,7 @@ class EGraphXYThetaNode{
     ros::Publisher marker_pub;
 
     ros::Subscriber interrupt_sub_;
+    int num_islands;    //fadi
     void interruptPlannerCallback(std_msgs::EmptyConstPtr);
 };
 

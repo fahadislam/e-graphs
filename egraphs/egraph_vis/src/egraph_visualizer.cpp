@@ -73,7 +73,7 @@ void EGraphVisualizer::processFeedback(const visualization_msgs::InteractiveMark
   if(!pch || strcmp(pch,"egraph")!=0)
     return;
   //ok, this is an egraph marker...
-  
+
   pch = strtok (NULL, "_");
   if(!pch || strcmp(pch,"vertex")!=0)
     return;
@@ -94,8 +94,8 @@ void EGraphVisualizer::processFeedback(const visualization_msgs::InteractiveMark
   //so that we know that this id is still valid!
   EGraph::EGraphVertex* v = eg_->id2vertex[id];
   //we got the vertex from the e-graph
-  
-  
+
+
   if(feedback->event_type == visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT){
     if(feedback->menu_entry_id == 1){
       //Show/Hide Neighborhood
@@ -114,7 +114,7 @@ void EGraphVisualizer::processFeedback(const visualization_msgs::InteractiveMark
     }
     else if(feedback->menu_entry_id == 2){
       //Show/Hide Shortcuts
-      
+
     }
   }
   else if(feedback->event_type == visualization_msgs::InteractiveMarkerFeedback::MOUSE_DOWN){
@@ -200,7 +200,7 @@ void EGraphVisualizer::addNeighbor(EGraph::EGraphVertex* v, int neighbor){
 
 visualization_msgs::MarkerArray EGraphVisualizer::getVisualization(std::string type){
   visualization_msgs::MarkerArray ma;
-  
+
   if(type.compare("egraph") == 0 || type.compare("detailed_egraph") == 0)
   {
     visualization_msgs::MarkerArray m_state;
@@ -219,7 +219,7 @@ visualization_msgs::MarkerArray EGraphVisualizer::getVisualization(std::string t
 
       if(type.compare("detailed_egraph") == 0)
         m_state = converter_->stateToDetailedVisualizationMarker(coord);
-      else 
+      else
         m_state = converter_->stateToVisualizationMarker(coord);
 
       // get edges

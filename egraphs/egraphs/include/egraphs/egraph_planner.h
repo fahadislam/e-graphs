@@ -120,7 +120,7 @@ class LazyAEGPlanner : public SBPLPlanner{
         EGraphManagerPtr egraph_mgr_;
 
         bool bforwardsearch; //if true, then search proceeds forward, otherwise backward
-        LazyAEGState goal_state;
+        vector<LazyAEGState> goal_state;
         LazyAEGState* start_state;
         std::vector<LazyAEGState*> island_state;     //fadi
         //int goal_state_id;
@@ -162,7 +162,7 @@ class LazyAEGPlanner : public SBPLPlanner{
         void getNextLazyElement(int q_id, LazyAEGState* state);
         void insertLazyList(int q_id, LazyAEGState* state, LazyAEGState* parent, int edgeCost, bool isTrueCost, EdgeType edgeType, int snap_midpoint);
         void putStateInHeap(int q_id, LazyAEGState* state);
-        void updateGoal(LazyAEGState* state);
+        void updateGoal(int q_id, LazyAEGState* state);
 
         virtual int ImprovePath();
 

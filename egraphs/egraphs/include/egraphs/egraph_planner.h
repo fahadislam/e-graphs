@@ -127,6 +127,11 @@ class LazyAEGPlanner : public SBPLPlanner{
         int start_state_id;
         std::vector<int> island_state_id;       //fadi
 
+        ros::Publisher marker_pub_expansion;
+        visualization_msgs::MarkerArray ma;
+
+        EGraphMarkerMaker* converter_;
+
         int num_islands;
         //search member variables
         double eps;

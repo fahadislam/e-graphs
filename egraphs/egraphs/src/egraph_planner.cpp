@@ -29,6 +29,7 @@
 #include <egraphs/egraph_planner.h>
 #include <algorithm>
 #include <numeric>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -55,6 +56,9 @@ LazyAEGPlanner<HeuristicType>::LazyAEGPlanner(DiscreteSpaceInformation* environm
   //goal_state_id = -1;
   start_state_id = -1;
   evaluated_snaps = 0;
+
+  ros::NodeHandle nh;
+  marker_pub_expansion = nh.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 10);  //fadi
 }
 
 template <typename HeuristicType>
@@ -113,6 +117,33 @@ void LazyAEGPlanner<HeuristicType>::ExpandState(int g_id, LazyAEGState* parent){
   vector<int> children;
   vector<int> costs;
   vector<bool> isTrueCost;
+
+  //visualizing state
+  vector<double> coord(3);
+  egraph_mgr_->egraph_env_->getCoord(parent->id, coord);
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "map";
+  marker.id = rand()%10000;
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.pose.position.x = coord[0];
+  marker.pose.position.y = coord[1];
+  marker.pose.position.z = 0;
+  marker.pose.orientation.w = 1.0;
+  marker.scale.x = 0.02;
+  marker.scale.y = 0.02;
+  marker.scale.z = 0.02;
+  marker.color.r = 0.0f;
+  marker.color.g = 0.0f;
+  marker.color.b = 1.0f;
+  marker.color.a = 1.0;
+
+  ma.markers.push_back(marker);
+  // visualization_msgs::MarkerArray ma;
+  // ma.markers.push_back(marker);
+  marker_pub_expansion.publish(ma);
+  getchar();
+
+
 
   clock_t getSucc_t0 = clock();
   if(bforwardsearch)

@@ -30,12 +30,13 @@
 #include <algorithm>
 #include <numeric>
 #include <stdlib.h>
+#include <tf/tf.h>
 
 using namespace std;
 
 template <typename HeuristicType>
 LazyAEGPlanner<HeuristicType>::LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bSearchForward,
-                               EGraphManagerPtr egraph_mgr, int num_isls) :
+                               EGraphManagerPtr egraph_mgr, int num_isls, EGraphVisualizer* egraph_vis) :
   params(0.0), egraph_mgr_(egraph_mgr){ //, goal_state(NULL) {
   //bforwardsearch = bSearchForward;
   if(!bSearchForward)
@@ -51,7 +52,7 @@ LazyAEGPlanner<HeuristicType>::LazyAEGPlanner(DiscreteSpaceInformation* environm
   goal_state.resize(num_islands);
   island_state_id.resize(num_islands);
   island_state.resize(num_islands);
-
+  egraph_vis_ = egraph_vis;
 
   //goal_state_id = -1;
   start_state_id = -1;
@@ -121,20 +122,41 @@ void LazyAEGPlanner<HeuristicType>::ExpandState(int g_id, LazyAEGState* parent){
   //visualizing state
   vector<double> coord(3);
   egraph_mgr_->egraph_env_->getCoord(parent->id, coord);
+
+  // printf("angle %f\n", coord[2]);
+  tf::Quaternion quat_state(0,0,coord[2]);
+
   visualization_msgs::Marker marker;
   marker.header.frame_id = "map";
   marker.id = rand()%10000;
-  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.type = visualization_msgs::Marker::ARROW;
   marker.pose.position.x = coord[0];
   marker.pose.position.y = coord[1];
   marker.pose.position.z = 0;
-  marker.pose.orientation.w = 1.0;
-  marker.scale.x = 0.02;
+  marker.pose.orientation.x = quat_state.x();
+  marker.pose.orientation.y = quat_state.y();
+  marker.pose.orientation.z = quat_state.z();
+  marker.pose.orientation.w = quat_state.w();
+  marker.scale.x = 0.15;
   marker.scale.y = 0.02;
   marker.scale.z = 0.02;
+  if (g_id == 0){ //todo
+  marker.color.r = 0.0f;
+  marker.color.g = 0.0f;
+  marker.color.b = 0.0f;
+  }
+  else if (g_id == 1){
+  marker.color.r = 1.0f;
+  marker.color.g = 0.0f;
+  marker.color.b = 0.0f;
+  }
+  else if (g_id == 2){
   marker.color.r = 0.0f;
   marker.color.g = 0.0f;
   marker.color.b = 1.0f;
+  }
+
+
   marker.color.a = 1.0;
 
   ma.markers.push_back(marker);
@@ -369,7 +391,7 @@ int LazyAEGPlanner<HeuristicType>::ImprovePath(){
   //expand states until done
   int expands = 0;
   vector<CKey> min_key(num_islands);
-
+  vector<bool> search_reached(num_islands, false);
   for (int g_id=0; g_id < num_islands; g_id++)
     min_key[g_id] = heaps[g_id].getminkeyheap();  //fadi
 
@@ -378,14 +400,47 @@ int LazyAEGPlanner<HeuristicType>::ImprovePath(){
         min_key[0].key[0] < INFINITECOST &&
         (goal_state[0].g > min_key[0].key[0] || !goal_state[0].isTrueCost) &&
         !outOfTime())
-        || (!heaps[1].emptyheap() &&    //todo
+        ||
+        (!heaps[1].emptyheap() &&    //todo
         min_key[1].key[0] < INFINITECOST &&
         (goal_state[1].g > min_key[1].key[0] || !goal_state[1].isTrueCost) &&
+        !outOfTime())
+        ||
+        (!heaps[2].emptyheap() &&    //todo
+        min_key[2].key[0] < INFINITECOST &&
+        (goal_state[2].g > min_key[2].key[0] || !goal_state[2].isTrueCost) &&
         !outOfTime())){
+
 
     //get the state
 
     for (int g_id=0; g_id < num_islands; g_id++){
+
+      if (search_reached[g_id] == true)  //todo
+        continue;
+
+      if (!(!heaps[g_id].emptyheap() &&    //todo
+        min_key[g_id].key[0] < INFINITECOST &&
+        (goal_state[g_id].g > min_key[g_id].key[0] || !goal_state[g_id].isTrueCost) &&
+        !outOfTime())){
+        printf("SEARCH %d FOUND PATH\n", g_id);
+        search_reached[g_id] = true;
+        for (int i=0; i < num_islands; i++)  //fadi
+          if(goal_state[i].g < goal_state[i].v){
+            goal_state[i].expanded_best_parent = goal_state[i].best_parent;
+            goal_state[i].expanded_best_edge_type = goal_state[i].best_edge_type;
+            goal_state[i].expanded_snap_midpoint = goal_state[i].snap_midpoint;
+            goal_state[i].v = goal_state[i].g;
+          }
+        int PathCost;
+        vector<vector<int>> pathIds;
+        pathIds = GetSearchPath(g_id, PathCost);
+        egraph_vis_->visualize();
+        egraph_mgr_->setGoal();
+        continue;
+      }
+
+
       LazyAEGState* state = (LazyAEGState*)heaps[g_id].deleteminheap();
 
       if(state->v == state->g){
@@ -442,6 +497,8 @@ int LazyAEGPlanner<HeuristicType>::ImprovePath(){
       goal_state[g_id].expanded_snap_midpoint = goal_state[g_id].snap_midpoint;
       goal_state[g_id].v = goal_state[g_id].g;
     }
+
+  while(1);
   return 1;
 }
 
@@ -479,7 +536,7 @@ bool LazyAEGPlanner<HeuristicType>::reconstructSuccs(LazyAEGState* state,
 }
 
 template <typename HeuristicType>
-vector<vector<int>> LazyAEGPlanner<HeuristicType>::GetSearchPath(int& solcost){
+vector<vector<int>> LazyAEGPlanner<HeuristicType>::GetSearchPath(int g_id, int& solcost){
     clock_t reconstruct_t0 = clock();
 
     bool print = false;
@@ -488,7 +545,7 @@ vector<vector<int>> LazyAEGPlanner<HeuristicType>::GetSearchPath(int& solcost){
     LazyAEGState* state;
     LazyAEGState* final_state;
 
-    for (int g_id=0;g_id<num_islands;g_id++){
+    // for (int g_id=0;g_id<num_islands;g_id++){
       if(bforwardsearch){
             state = &goal_state[g_id];
             final_state = island_state[g_id];    //fadi
@@ -502,7 +559,6 @@ vector<vector<int>> LazyAEGPlanner<HeuristicType>::GetSearchPath(int& solcost){
         int shortcut_count = 0;
 
         while(state->id != final_state->id){
-            printf("id is %d\n", state->id);
             if(state->expanded_best_parent == NULL){
                 printf("a state along the path has no parent!\n");
                 assert(false);
@@ -574,7 +630,7 @@ vector<vector<int>> LazyAEGPlanner<HeuristicType>::GetSearchPath(int& solcost){
         feedbackPathTime = double(feedback_t1-feedback_t0)/CLOCKS_PER_SEC;
         //egraph_mgr_->printVector(wholePathIds);
 
-    }
+    // }
     return wholePathIds;
 
 }
@@ -732,7 +788,7 @@ bool LazyAEGPlanner<HeuristicType>::Search(vector<vector<int>>& pathIds, int& Pa
     printf("WARNING: a solution was found but we don't have quality bound for it!\n");
 
   printf("solution found\n");
-  pathIds = GetSearchPath(PathCost);
+  // pathIds = GetSearchPath(PathCost);
 
   return true;
 }

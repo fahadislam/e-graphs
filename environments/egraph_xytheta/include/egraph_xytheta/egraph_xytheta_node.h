@@ -38,7 +38,7 @@ class EGraphXYThetaNode{
     ros::Publisher plan_pub_;
     ros::ServiceServer plan_service_;
     ros::Publisher marker_pub;
-
+    ros::Publisher particlecloud_pub_;  //fadi
     ros::Subscriber interrupt_sub_;
     int num_islands;    //fadi
     void interruptPlannerCallback(std_msgs::EmptyConstPtr);

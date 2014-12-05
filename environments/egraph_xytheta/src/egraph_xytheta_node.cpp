@@ -78,9 +78,10 @@ EGraphXYThetaNode::EGraphXYThetaNode(costmap_2d::Costmap2DROS* costmap_ros) {
 
   heur_ = new EGraph2dGridHeuristic(*env_, costmap_ros_->getSizeInCellsX(), costmap_ros_->getSizeInCellsY(), NAVXYTHETALAT_COSTMULT_MTOMM/nominalvel_mpersecs);
   egraph_mgr_ = new EGraphManager<vector<int> >(egraph_, env_, heur_);
-  num_islands = 2;
-  planner_ = new LazyAEGPlanner<vector<int> >(env_, true, egraph_mgr_, num_islands);
+  num_islands = 3;
   egraph_vis_ = new EGraphVisualizer(egraph_, env_);
+  planner_ = new LazyAEGPlanner<vector<int> >(env_, true, egraph_mgr_, num_islands, egraph_vis_);
+
 
   egraph_vis_->visualize();
 
@@ -116,21 +117,36 @@ bool EGraphXYThetaNode::makePlan(egraph_xytheta::GetXYThetaPlan::Request& req, e
 
   costmap_ros_->getCostmapCopy(cost_map_);
 
-  try{
+  vector<double> island_x(num_islands);
+  vector<double> island_y(num_islands);
+  vector<double> island_theta(num_islands);
+// 4.911 8.418 -0.027
+// 8.524 10.902 -0.022
+// 13.243 8.190 1.563
+  island_x[0] =4.911;
+  island_y[0] =8.418;
+  island_theta[0] =-0.027;
+
+  island_x[1] =8.524;
+  island_y[1] =10.902;
+  island_theta[1] =-0.022;
+
+  island_x[2] =13.243;
+  island_y[2] =8.190;
+  island_theta[2] =1.563;
+  try{  //dummy start
     int ret = env_->SetStart(req.start_x - cost_map_.getOriginX(), req.start_y - cost_map_.getOriginY(), req.start_theta);
     if(ret < 0 || planner_->set_start(ret) == 0){
       ROS_ERROR("ERROR: failed to set start state\n");
       return false;
     }
-    ret = env_->SetStart(req.start_x - cost_map_.getOriginX(), req.start_y - cost_map_.getOriginY(), req.start_theta);
-    if(ret < 0 || planner_->set_islands(0,ret) == 0){
-      ROS_ERROR("ERROR: failed to set start state\n");
-      return false;
-    }
-    ret = env_->SetStart(req.start_x-0.5 - cost_map_.getOriginX(), req.start_y - cost_map_.getOriginY(), req.start_theta);
-    if(ret < 0 || planner_->set_islands(1,ret) == 0){
-      ROS_ERROR("ERROR: failed to set start state\n");
-      return false;
+    for (int g_id = 0; g_id < num_islands; g_id++){
+      printf("setting %d\n", g_id);
+      ret = env_->SetStart(island_x[g_id] - cost_map_.getOriginX(), island_y[g_id]- cost_map_.getOriginY(), island_theta[g_id]);
+      if(ret < 0 || planner_->set_islands(g_id,ret) == 0){
+        ROS_ERROR("ERROR: failed to set start state\n");
+        return false;
+      }
     }
   }
   catch(SBPL_Exception e){

@@ -33,8 +33,9 @@ EGraphXYNode::EGraphXYNode(costmap_2d::Costmap2DROS* costmap_ros) {
 
   heur_ = new EGraphEuclideanHeuristic(*env_,ENVNAV2D_COSTMULT);
   egraph_mgr_ = new EGraphManager<vector<double> >(egraph_, env_, heur_);
-  planner_ = new LazyAEGPlanner<vector<double> >(env_, true, egraph_mgr_);
+  num_islands = 2;
   egraph_vis_ = new EGraphVisualizer(egraph_, env_);
+  planner_ = new LazyAEGPlanner<vector<int> >(env_, true, egraph_mgr_, num_islands, egraph_vis_);
 
   egraph_vis_->visualize();
 
@@ -61,6 +62,16 @@ bool EGraphXYNode::makePlan(egraph_xy::GetXYPlan::Request& req, egraph_xy::GetXY
     ROS_ERROR("ERROR: failed to set start state\n");
     return false;
   }
+  ret = env_->SetStart(sx,sy-1.0);
+  if(ret < 0 || planner_->set_islands(0,ret) == 0){
+    ROS_ERROR("ERROR: failed to set start state\n");
+    return false;
+  }
+  ret = env_->SetStart(sx,sy);
+  if(ret < 0 || planner_->set_islands(1,ret) == 0){
+    ROS_ERROR("ERROR: failed to set start state\n");
+    return false;
+  }
   ret = env_->SetGoal(gx,gy);
   if(ret < 0 || planner_->set_goal(ret) == 0){
     ROS_ERROR("ERROR: failed to set goal state\n");
@@ -82,7 +93,7 @@ bool EGraphXYNode::makePlan(egraph_xy::GetXYPlan::Request& req, egraph_xy::GetXY
   params.use_egraph = req.use_egraph;
   params.feedback_path = req.feedback_path;
 
-  vector<int> solution_stateIDs;
+  vector<vector<int>> solution_stateIDs;
   ret = planner_->replan(&solution_stateIDs, params);
 
   map<string,double> stats = planner_->getStats();
@@ -96,34 +107,36 @@ bool EGraphXYNode::makePlan(egraph_xy::GetXYPlan::Request& req, egraph_xy::GetXY
   if(req.save_egraph)
     egraph_->save("xy_egraph.eg");
 
-  //create a message for the plan 
-  nav_msgs::Path gui_path;
-  gui_path.poses.resize(solution_stateIDs.size());
-  gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
-  gui_path.header.stamp = ros::Time::now();
-  for(unsigned int i=0; i<solution_stateIDs.size(); i++){
-    int x,y;
-    env_->GetCoordFromState(solution_stateIDs[i],x,y);
-    double wx,wy;
-    cost_map_.mapToWorld(x,y,wx,wy);
+  //create a message for the plan
 
-    gui_path.poses[i].pose.position.x = wx;
-    gui_path.poses[i].pose.position.y = wy;
+  for(int g_id = 0; g_id < num_islands; g_id++){
+    nav_msgs::Path gui_path;
+    gui_path.poses.resize(solution_stateIDs[g_id].size());
+    gui_path.header.frame_id = costmap_ros_->getGlobalFrameID();
+    gui_path.header.stamp = ros::Time::now();
+    for(unsigned int i=0; i<solution_stateIDs[g_id].size(); i++){
+      int x,y;
+      env_->GetCoordFromState(solution_stateIDs[g_id][i],x,y);
+      double wx,wy;
+      cost_map_.mapToWorld(x,y,wx,wy);
 
-    geometry_msgs::PoseStamped p;
-    p.pose.position.x = wx;
-    p.pose.position.y = wy;
-    p.pose.position.z = 0;
+      gui_path.poses[i].pose.position.x = wx;
+      gui_path.poses[i].pose.position.y = wy;
 
-    p.pose.orientation.w = 1;
-    p.pose.orientation.x = 0;
-    p.pose.orientation.y = 0;
-    p.pose.orientation.z = 0;
+      geometry_msgs::PoseStamped p;
+      p.pose.position.x = wx;
+      p.pose.position.y = wy;
+      p.pose.position.z = 0;
 
-    res.path.push_back(p);
+      p.pose.orientation.w = 1;
+      p.pose.orientation.x = 0;
+      p.pose.orientation.y = 0;
+      p.pose.orientation.z = 0;
+
+      res.path.push_back(p);
+    }
+    plan_pub_.publish(gui_path);
   }
-  plan_pub_.publish(gui_path);
-
   egraph_vis_->visualize();
 
   return true;

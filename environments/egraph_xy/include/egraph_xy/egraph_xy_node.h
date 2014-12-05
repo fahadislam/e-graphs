@@ -1,12 +1,13 @@
-#include<ros/ros.h>
-#include<egraphs/egraph.h>
-#include<egraphs/egraph_planner.h>
-#include<egraphs/egraphManager.h>
-#include<egraphs/egraph_euclidean_heuristic.h>
+#include <ros/ros.h>
+#include <egraphs/egraph.h>
+
+#include <egraphs/egraphManager.h>
+#include <egraphs/egraph_euclidean_heuristic.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <tf/transform_listener.h>
 #include <egraph_xy/GetXYPlan.h>
 #include <egraph_xy/egraph_xy.h>
+#include <egraphs/egraph_planner.h>
 
 class EGraphXYNode{
   public:
@@ -28,5 +29,6 @@ class EGraphXYNode{
     ros::ServiceServer plan_service_;
 
     ros::Subscriber interrupt_sub_;
+    int num_islands;    //fadi
     void interruptPlannerCallback(std_msgs::EmptyConstPtr);
 };

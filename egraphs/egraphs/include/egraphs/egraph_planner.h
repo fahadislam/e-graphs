@@ -98,7 +98,7 @@ class LazyAEGPlanner : public SBPLPlanner{
         };
 
         LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bforwardsearch,
-                       EGraphManagerPtr egraph_mgr, int num_isls);
+                       EGraphManagerPtr egraph_mgr, int num_isls, EGraphVisualizer* egraph_vis);
         ~LazyAEGPlanner(){};
 
         map<string,double> getStats(){return stat_map_;};
@@ -126,6 +126,7 @@ class LazyAEGPlanner : public SBPLPlanner{
         //int goal_state_id;
         int start_state_id;
         std::vector<int> island_state_id;       //fadi
+        EGraphVisualizer* egraph_vis_;
 
         ros::Publisher marker_pub_expansion;
         visualization_msgs::MarkerArray ma;
@@ -171,7 +172,7 @@ class LazyAEGPlanner : public SBPLPlanner{
 
         virtual int ImprovePath();
 
-        virtual vector<vector<int>> GetSearchPath(int& solcost);
+        virtual vector<vector<int>> GetSearchPath(int g_id, int& solcost);
 
         virtual bool outOfTime();
         virtual void initializeSearch();

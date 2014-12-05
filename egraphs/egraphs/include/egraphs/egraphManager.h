@@ -62,24 +62,24 @@ class EGraphManager {
         typedef EGraphable<HeuristicType>* EGraphablePtr;
         typedef EGraphHeuristic<HeuristicType>* EGraphHeuristicPtr;
 
-        EGraphManager(EGraphPtr egraph, EGraphablePtr egraph_env, 
+        EGraphManager(EGraphPtr egraph, EGraphablePtr egraph_env,
                       EGraphHeuristicPtr egraph_heur);
         void setEpsE(double epsE){egraph_heur_->setEpsE(epsE);};
         bool setGoal();
         int getHeuristic(int state_id);
-        void getSnapSuccessors(int stateID, std::vector<int>* SuccIDV, 
-                               std::vector<int>* CostV, std::vector<bool>* isTrueCost, 
+        void getSnapSuccessors(int stateID, std::vector<int>* SuccIDV,
+                               std::vector<int>* CostV, std::vector<bool>* isTrueCost,
                                std::vector<EdgeType>* edgeTypes);
         int getSnapTrueCost(int parentID, int childID);
-        void getDirectShortcutSuccessors(int stateID, std::vector<int>* SuccIDV, 
+        void getDirectShortcutSuccessors(int stateID, std::vector<int>* SuccIDV,
                                          std::vector<int>* CostV, std::vector<bool>* isTrueCost,
                                          std::vector<EdgeType>* edgeTypes);
-        void getComboSnapShortcutSuccessors(int stateID, std::vector<int>* SuccIDV, 
+        void getComboSnapShortcutSuccessors(int stateID, std::vector<int>* SuccIDV,
                                             std::vector<int>* CostV, std::vector<bool>* isTrueCost);
 
-        void getSnapShortcuts(int stateID, 
-                              std::vector<int>* SuccIDV, 
-                              std::vector<int>* CostV, 
+        void getSnapShortcuts(int stateID,
+                              std::vector<int>* SuccIDV,
+                              std::vector<int>* CostV,
                               std::vector<bool>* isTrueCost,
                               std::vector<EdgeType>* edgeTypes,
                               std::vector<int>* snap_midpoints);
@@ -90,17 +90,17 @@ class EGraphManager {
 
 
 
-        bool reconstructDirectShortcuts(LazyAEGState* state, 
-                                           LazyAEGState*& next_state, 
-                                           std::vector<int>* wholePathIds, 
+        bool reconstructDirectShortcuts(LazyAEGState* state,
+                                           LazyAEGState*& next_state,
+                                           std::vector<int>* wholePathIds,
                                            std::vector<int>* costs, int& shortcut_count,
                                            int& totalCost);
 
-        bool reconstructSnap(LazyAEGState* state, LazyAEGState*& next_state, 
+        bool reconstructSnap(LazyAEGState* state, LazyAEGState*& next_state,
                              std::vector<int>* wholePathIds, std::vector<int>* costs);
 
-        bool reconstructComboSnapShortcut(LazyAEGState* state, LazyAEGState*& next_state, 
-                                          std::vector<int>* wholePathIds, std::vector<int>* costs, 
+        bool reconstructComboSnapShortcut(LazyAEGState* state, LazyAEGState*& next_state,
+                                          std::vector<int>* wholePathIds, std::vector<int>* costs,
                                           int goal_id);
 
         void storeLastPath(const std::vector<int>& path, const std::vector<int>& costs);
@@ -108,7 +108,7 @@ class EGraphManager {
         EGraphStats getStats(){ return stats_; };
         void save(std::string filename){ egraph_->save(filename); };
 
-        //void clearSnapSuccessorsCache(){ snap_successors_cache_.clear(); 
+        //void clearSnapSuccessorsCache(){ snap_successors_cache_.clear();
                                             //snap_costs_cache_.clear();};
         void validateEGraph(bool update_egraph=true);
         void initEGraph(bool set_goal=true);
@@ -118,21 +118,21 @@ class EGraphManager {
         // TODO at the moment, this just stores if an edge came from a snap
         // (used for getsnaptruecost. doesn't actually use any ints
         //std::map<Edge, int> snaps_;
-        void printVector(std::vector<int>& v); 
+        void printVector(std::vector<int>& v);
     private:
         void errorCheckEGraphVertex(EGraph::EGraphVertex* vertex);
         std::vector<int> getDirectShortcutStateIDs(int start_id, int end_id, std::vector<int>* costs);
 
         void fillInDirectShortcut(int start_id, int end_id,
-                                  std::vector<int>* wholePathIds, 
+                                  std::vector<int>* wholePathIds,
                                   std::vector<int>* costs, int& shortcut_count);
 
-        void printVector(std::vector<double>& v); 
+        void printVector(std::vector<double>& v);
 
         DiscState getDiscStateFromID(int state_id);
 
         // this is specifically for combosnaps. because a snap combo edge is
-        //      source->[snap]->snap_id->[shortcut]->successor, 
+        //      source->[snap]->snap_id->[shortcut]->successor,
         // this cache holds:
         //      (source, successor)->(snap_id, cost)
         //std::map<Edge, std::pair<int, int> > snap_combo_cache_;

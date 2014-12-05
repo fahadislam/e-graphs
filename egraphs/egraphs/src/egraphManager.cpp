@@ -1,8 +1,8 @@
 using namespace std;
 
 template <typename HeuristicType>
-EGraphManager<HeuristicType>::EGraphManager(EGraphPtr egraph, 
-                             EGraphablePtr egraph_env, 
+EGraphManager<HeuristicType>::EGraphManager(EGraphPtr egraph,
+                             EGraphablePtr egraph_env,
                              EGraphHeuristicPtr egraph_heur):
     egraph_env_(egraph_env), egraph_(egraph), egraph_heur_(egraph_heur) {
     egraph_heur_->initialize(egraph_);
@@ -74,7 +74,7 @@ void EGraphManager<HeuristicType>::validateEGraph(bool update_egraph){
     stats_.egraph_validity_check_time = double(clock()-time)/CLOCKS_PER_SEC;
 }
 
-// sets the goal id in the heuristic and also clears the snap cache 
+// sets the goal id in the heuristic and also clears the snap cache
 template <typename HeuristicType>
 bool EGraphManager<HeuristicType>::setGoal(){
     HeuristicType coord;
@@ -100,13 +100,13 @@ int EGraphManager<HeuristicType>::getSnapTrueCost(int parentID, int childID){
 
     ContState source_state;
     egraph_env_->getCoord(parentID, source_state);
-    
+
     ContState successor_state;
     egraph_env_->getCoord(childID, successor_state);
 
     int successor_id;
     int cost_of_snap;
-    bool is_snap_successful = egraph_env_->snap(source_state, 
+    bool is_snap_successful = egraph_env_->snap(source_state,
                                                 successor_state,
                                                 successor_id,
                                                 cost_of_snap);
@@ -121,8 +121,8 @@ int EGraphManager<HeuristicType>::getSnapTrueCost(int parentID, int childID){
 // lazily generates snaps. also updates the snaps_ cache which currently just
 // stores whether a particular edge is a snap edge.
 template <typename HeuristicType>
-void EGraphManager<HeuristicType>::getSnapSuccessors(int stateID, vector<int>* SuccIDV, 
-                                      vector<int>* CostV, 
+void EGraphManager<HeuristicType>::getSnapSuccessors(int stateID, vector<int>* SuccIDV,
+                                      vector<int>* CostV,
                                       vector<bool>* isTrueCost,
                                       vector<EdgeType>* edgeTypes){
     //ROS_INFO("looking for snaps");
@@ -150,7 +150,7 @@ void EGraphManager<HeuristicType>::getSnapSuccessors(int stateID, vector<int>* S
 
         // sbpl secret sauce (tm)
         cost_of_snap = 1;
-        
+
         bool is_unique = find(SuccIDV->begin(), SuccIDV->end(), successor_id) == SuccIDV->end();
         if(is_snap_successful && is_unique){
             assert(cost_of_snap > 0);
@@ -168,11 +168,11 @@ void EGraphManager<HeuristicType>::getSnapSuccessors(int stateID, vector<int>* S
 // a combo snap is:
 //      source->[snap]->snap_id->[shortcut]->successor
 // the cost of this successor will be the cost of the snap + cost of
-// shortcut. 
+// shortcut.
 template <typename HeuristicType>
-void EGraphManager<HeuristicType>::getComboSnapShortcutSuccessors(int stateID, 
-                                                   vector<int>* SuccIDV, 
-                                                   vector<int>* CostV, 
+void EGraphManager<HeuristicType>::getComboSnapShortcutSuccessors(int stateID,
+                                                   vector<int>* SuccIDV,
+                                                   vector<int>* CostV,
                                                    vector<bool>* isTrueCost){
     clock_t time = clock();
     //ROS_INFO("trying to find combo snaps - found %lu", snap_successors.size());
@@ -185,7 +185,7 @@ void EGraphManager<HeuristicType>::getComboSnapShortcutSuccessors(int stateID,
         vector<EdgeType> edgeTypes;
 
         //ROS_INFO("looking up shortcut for snap_id %d", snap_id);
-        getDirectShortcutSuccessors(snap_id, &shortcut_successors, 
+        getDirectShortcutSuccessors(snap_id, &shortcut_successors,
                                     &shortcut_costs, &shortcut_is_true_cost, &edgeTypes);
 
         // we want to ignore snaps that don't lead to shortcuts, because we
@@ -200,7 +200,7 @@ void EGraphManager<HeuristicType>::getComboSnapShortcutSuccessors(int stateID,
         for (auto& cost : shortcut_costs){
             cost += snap_costs_cache_[i];
         }
-        
+
         assert(shortcut_successors.size() == 1);
         for (size_t j=0; i < shortcut_successors.size(); i++){
             SuccIDV->push_back(shortcut_successors[j]);
@@ -208,7 +208,7 @@ void EGraphManager<HeuristicType>::getComboSnapShortcutSuccessors(int stateID,
             assert(shortcut_costs[j] > 0);
             CostV->push_back(shortcut_costs[j]);
             isTrueCost->push_back(true);
-            //ROS_INFO("computed combo snap from %d to %d through snap %d cost %d", 
+            //ROS_INFO("computed combo snap from %d to %d through snap %d cost %d",
             //          stateID, shortcut_successors[j], snap_id, shortcut_costs[j]);
 
             // store the snap state id used for this combo
@@ -226,9 +226,9 @@ void EGraphManager<HeuristicType>::getComboSnapShortcutSuccessors(int stateID,
 }
 
 template <typename HeuristicType>
-void EGraphManager<HeuristicType>::getSnapShortcuts(int stateID, 
-                                     vector<int>* SuccIDV, 
-                                     vector<int>* CostV, 
+void EGraphManager<HeuristicType>::getSnapShortcuts(int stateID,
+                                     vector<int>* SuccIDV,
+                                     vector<int>* CostV,
                                      vector<bool>* isTrueCost,
                                      vector<EdgeType>* edgeTypes,
                                      vector<int>* snap_midpoints){
@@ -275,13 +275,13 @@ template <typename HeuristicType>
 int EGraphManager<HeuristicType>::getSnapShortcutTrueCost(int parentID, int snap_midpoint, int childID){
   ContState pre_snap;
   egraph_env_->getCoord(parentID, pre_snap);
-  
+
   ContState post_snap;
   egraph_env_->getCoord(snap_midpoint, post_snap);
 
   int snap_id;
   int cost_of_snap;
-  bool is_snap_successful = egraph_env_->snap(pre_snap, 
+  bool is_snap_successful = egraph_env_->snap(pre_snap,
                                               post_snap,
                                               snap_id,
                                               cost_of_snap);
@@ -321,13 +321,13 @@ bool EGraphManager<HeuristicType>::reconstructSnapShortcut(LazyAEGState* state, 
   int dummy_shortcut_count=0;
   int totalShortcutCost;
   //uses state->id and state->expanded_best_parent->id
-  assert(reconstructDirectShortcuts(&state_reached_by_shortcut, next_state, 
+  assert(reconstructDirectShortcuts(&state_reached_by_shortcut, next_state,
                                     wholePathIds, costs, dummy_shortcut_count,
                                     totalShortcutCost));
-  
+
   //uses state->id and state->expanded_best_parent->id
   //state->expanded_best_parent is used to set next_state
-  assert(reconstructSnap(&fake_snap_state, next_state, 
+  assert(reconstructSnap(&fake_snap_state, next_state,
                          wholePathIds, costs));
 
   totalCost = totalShortcutCost + costs->back();
@@ -350,7 +350,7 @@ DiscState EGraphManager<HeuristicType>::getDiscStateFromID(int state_id){
 // the points that make up the shortcut - that's dealt with in
 // reconstructDirectShortcuts
 template <typename HeuristicType>
-void EGraphManager<HeuristicType>::getDirectShortcutSuccessors(int source_state_id, vector<int>* SuccIDV, 
+void EGraphManager<HeuristicType>::getDirectShortcutSuccessors(int source_state_id, vector<int>* SuccIDV,
                                                 vector<int>* CostV, vector<bool>* isTrueCost,
                                                 vector<EdgeType>* edgeTypes){
     //ROS_INFO("looking for direct shortcuts for %d", source_state_id);
@@ -406,9 +406,9 @@ void EGraphManager<HeuristicType>::getDirectShortcutSuccessors(int source_state_
 // figures out if we've used a direct shortcut or not. if we have, it gets the
 // entire path segment (including the last point) for the shortcut
 template <typename HeuristicType>
-bool EGraphManager<HeuristicType>::reconstructDirectShortcuts(LazyAEGState* state, 
-                                                  LazyAEGState*& next_state, 
-                                                  vector<int>* wholePathIds, 
+bool EGraphManager<HeuristicType>::reconstructDirectShortcuts(LazyAEGState* state,
+                                                  LazyAEGState*& next_state,
+                                                  vector<int>* wholePathIds,
                                                   vector<int>* costs,
                                                   int& shortcut_count,
                                                   int& totalCost){
@@ -419,13 +419,13 @@ bool EGraphManager<HeuristicType>::reconstructDirectShortcuts(LazyAEGState* stat
     getDirectShortcutSuccessors(state->expanded_best_parent->id, &SuccIDV,&CostV, &isTrueCost, &edgeTypes);
     int actioncost = INFINITECOST;
     int shortcut_id = -1;
-    // determine a shortcut was used. 
+    // determine a shortcut was used.
     for(size_t i=0; i<SuccIDV.size(); i++){
         bool used_shortcut = (SuccIDV[i] == state->id && CostV[i]<actioncost);
         if (used_shortcut){
             actioncost = CostV[i];
             shortcut_id = state->id;
-        //ROS_INFO("reconstructing shortcut to %d (not %d), cost %d %d", 
+        //ROS_INFO("reconstructing shortcut to %d (not %d), cost %d %d",
         //         shortcut_id, goal_id, CostV[i], actioncost);
         }
     }
@@ -445,8 +445,8 @@ bool EGraphManager<HeuristicType>::reconstructDirectShortcuts(LazyAEGState* stat
 // backwarsd search
 template <typename HeuristicType>
 void EGraphManager<HeuristicType>::fillInDirectShortcut (int parent_id, int shortcut_id,
-                                          vector<int>* wholePathIds, 
-                                          vector<int>* costs, 
+                                          vector<int>* wholePathIds,
+                                          vector<int>* costs,
                                           int& shortcut_count){
     //ROS_INFO("get the direct shortcut path %d %d",parent_id, shortcut_id);
     vector<int> shortcut_costs;
@@ -465,7 +465,7 @@ void EGraphManager<HeuristicType>::fillInDirectShortcut (int parent_id, int shor
         wholePathIds->push_back(shortcut_path[j]);
     }
 
-    //ROS_INFO("used shortcut of size %lu between %d %d", shortcut_path.size(), 
+    //ROS_INFO("used shortcut of size %lu between %d %d", shortcut_path.size(),
     //                                                    parent_id, shortcut_id);
     assert(shortcut_path.size() > 1);
     for (auto cost : shortcut_costs){
@@ -474,15 +474,15 @@ void EGraphManager<HeuristicType>::fillInDirectShortcut (int parent_id, int shor
 
     shortcut_count += shortcut_path.size();
     //ROS_INFO("shortcut count is %d", shortcut_count);
-    costs->insert(costs->end(), shortcut_costs.begin(), 
+    costs->insert(costs->end(), shortcut_costs.begin(),
             shortcut_costs.end());
-    //ROS_INFO("costs is size %lu, path ids is size %lu", costs->size(), 
+    //ROS_INFO("costs is size %lu, path ids is size %lu", costs->size(),
     //        wholePathIds->size());
     //assert(costs->size() == wholePathIds->size()-1);
 }
 
 template <typename HeuristicType>
-void EGraphManager<HeuristicType>::storeLastPath(const std::vector<int>& path, 
+void EGraphManager<HeuristicType>::storeLastPath(const std::vector<int>& path,
                                   const std::vector<int>& costs){
     EGraphPath full_path;
     assert(path.size()-1 == costs.size());
@@ -523,15 +523,15 @@ vector<int> EGraphManager<HeuristicType>::getDirectShortcutStateIDs(int start_id
 }
 
 template <typename HeuristicType>
-bool EGraphManager<HeuristicType>::reconstructSnap(LazyAEGState* state, 
-                                    LazyAEGState*& next_state, 
-                                    vector<int>* wholePathIds, 
+bool EGraphManager<HeuristicType>::reconstructSnap(LazyAEGState* state,
+                                    LazyAEGState*& next_state,
+                                    vector<int>* wholePathIds,
                                     vector<int>* costs){
     vector<int> SuccIDV;
     vector<int> CostV;
     vector<bool> isTrueCost;
     vector<EdgeType> edgeTypes;
-    
+
     getSnapSuccessors(state->expanded_best_parent->id, &SuccIDV, &CostV, &isTrueCost, &edgeTypes);
     int actioncost = INFINITECOST;
     int snap_id = -1;
@@ -554,15 +554,15 @@ bool EGraphManager<HeuristicType>::reconstructSnap(LazyAEGState* state,
         wholePathIds->push_back(next_state->id);
         assert(costs->size() == wholePathIds->size()-1);
         return true;
-    } 
+    }
     return false;
 }
 
 template <typename HeuristicType>
-bool EGraphManager<HeuristicType>::reconstructComboSnapShortcut(LazyAEGState* successor_state, 
-                                                 LazyAEGState*& next_state, 
-                                                 vector<int>* wholePathIds, 
-                                                 vector<int>* costs, 
+bool EGraphManager<HeuristicType>::reconstructComboSnapShortcut(LazyAEGState* successor_state,
+                                                 LazyAEGState*& next_state,
+                                                 vector<int>* wholePathIds,
+                                                 vector<int>* costs,
                                                  int goal_id){
     vector<int> SuccIDV;
     vector<int> CostV;
@@ -573,7 +573,7 @@ bool EGraphManager<HeuristicType>::reconstructComboSnapShortcut(LazyAEGState* su
     int snap_id = -1;
     int snap_cost = -1;
     /* Mike!
-    if (snap_combo_cache_.find(key) == snap_combo_cache_.end()){ 
+    if (snap_combo_cache_.find(key) == snap_combo_cache_.end()){
         // no combo found
         return false;
     } else {
@@ -586,9 +586,9 @@ bool EGraphManager<HeuristicType>::reconstructComboSnapShortcut(LazyAEGState* su
 
     // fill in shortcut
     int shortcut_count = 0;
-    fillInDirectShortcut(snap_id, shortcut_id, wholePathIds, costs, 
+    fillInDirectShortcut(snap_id, shortcut_id, wholePathIds, costs,
                          shortcut_count);
-    
+
     // rethink through how this happens. fillInDirectShortcut adds the parent in
     // at the end
     assert(false);

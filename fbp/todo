@@ -1,0 +1,43 @@
+exceptnion stuff for static configuration
+
+maybe change the name of occupancygriduser to something like discretizer? it
+uses a bunch of stuff other than occup grid
+
+change getANgles to return a vector rather than referenc?
+
+deal with unsigned int stateid -> maybe change it to ints?
+
+set arm to map transform function in the collisionspaceinterface
+
+error check service request
+
+templatize state reps?
+
+
+maybe take out search request struct so it's a litle cleaner?
+
+should all getter functions be duplicated in robot pose for ease?
+
+should the setter functions for xyz check bounds?
+
+move the prints in robotstate into their composed objects
+
+do something about indirection through SBPLEnv and envinterfaces?
+
+
+add in multiple goal
+
+make abstract heuristic class
+
+figure out why mprim logging breaks when search logger is set to info
+
+create a specific class for motion primitives rather than a vector of numbers
+
+fix the normalization problem in armadapdive
+
+restructure the computeCost function and when it's called since i use
+transitiondata class now
+
+change mprimmgr to add and remove mprims depending on the planning request
+
+make the planner wait for base heuristic map to get loaded

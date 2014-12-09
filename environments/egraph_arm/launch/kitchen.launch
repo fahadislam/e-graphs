@@ -1,0 +1,27 @@
+<launch>
+
+  <param name="robot_description" command="$(find xacro)/xacro.py '$(find pr2_description)/robots/pr2.urdf.xacro'" />
+
+  <node pkg="egraph_arm" type="planner_node" name="planner_node" output="screen" respawn="false" >
+
+    <rosparam command="load" file="$(find sbpl_arm_planner)/config/pr2_right_arm.yaml" />
+
+    <rosparam command="load" file="$(find sbpl_collision_checking)/config/pr2_right_arm_model.yaml" />
+
+    <rosparam command="load" file="$(find egraph_arm)/config/pr2_goal.yaml" />
+
+    <param name="torso_z" value="0.21" />
+
+    <param name="object_filename" value="$(find egraph_arm)/env/kitchen.env" />
+    <param name="env_offset_x" value="1.0" />
+    <param name="env_offset_y" value="1.55" />
+    <param name="env_offset_z" value="0.0" />
+    <param name="env_offset_yaw" value="3.14159" />
+
+    <param name="action_set_filename" value="$(find sbpl_arm_planner)/config/pr2.mprim" />
+
+    <!-- <param name="egraph_filename" value="$(find egraph_arm)/arm_egraph.eg" /> -->
+    <param name="egraph_filename" value="" />
+  </node>
+
+</launch>

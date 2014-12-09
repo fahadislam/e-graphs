@@ -1,0 +1,6 @@
+<launch>
+  <node name="interactXYTheta" pkg="egraph_xytheta" type="interactXYTheta" output="screen" >
+    <rosparam file="$(find egraph_xytheta)/config/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find egraph_xytheta)/config/global_costmap_params.yaml" command="load" />
+  </node>
+</launch>

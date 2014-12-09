@@ -1,0 +1,18 @@
+<package>
+  <description brief="egraph_xytheta">
+
+     egraph_xytheta
+
+  </description>
+  <author>robotman0</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/egraph_xytheta</url>
+
+  <depend package="costmap_2d"/>
+  <depend package="egraphs"/>
+  <depend package="egraph_vis"/>
+
+</package>
+
+

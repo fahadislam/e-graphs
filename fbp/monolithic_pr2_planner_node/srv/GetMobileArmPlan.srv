@@ -1,5 +1,7 @@
 # start
 geometry_msgs/PoseStamped start
+geometry_msgs/PoseStamped island
+
 
 int8 planning_mode
 float64 allocated_planning_time
@@ -12,6 +14,9 @@ float64[] body_start
 float64[] rarm_goal
 float64[] larm_goal
 float64[] body_goal
+float64[] rarm_island
+float64[] larm_island
+float64[] body_island
 
 # goal
 geometry_msgs/PoseStamped goal

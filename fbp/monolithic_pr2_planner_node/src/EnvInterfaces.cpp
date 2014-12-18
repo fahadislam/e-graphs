@@ -22,10 +22,10 @@ using namespace KDL;
 // loads it up with a pointer to the collision space mgr. it doesn't bind to any
 // topic.
 
-EnvInterfaces::EnvInterfaces(boost::shared_ptr<monolithic_pr2_planner::EGraphEnvironment> env, ros::NodeHandle nh) : 
+EnvInterfaces::EnvInterfaces(boost::shared_ptr<monolithic_pr2_planner::EGraphEnvironment> env, ros::NodeHandle nh) :
     m_nodehandle(nh),
-    m_env(env), 
-    m_collision_space_interface(new CollisionSpaceInterface(env->getCollisionSpace(), 
+    m_env(env),
+    m_collision_space_interface(new CollisionSpaceInterface(env->getCollisionSpace(),
                                                             env->getHeuristicMgr(),
                                                             NULL)),
     m_generator(new StartGoalGenerator(env->getCollisionSpace())) {
@@ -49,27 +49,28 @@ EnvInterfaces::EnvInterfaces(boost::shared_ptr<monolithic_pr2_planner::EGraphEnv
     double arm_fa_weight = 40.0/5.0/(2.0*M_PI/180.0) * 0.01;//artificially downweight to optimize this last
     double base_xy_weight = 40.0/0.02;
     double base_z_weight = 3000.0/0.02 * 0.001;
-    double base_theta_weight = 251.0/(M_PI/8.0); 
+    double base_theta_weight = 251.0/(M_PI/8.0);
     vector<double> heuristic_weights = {arm_xyz_weight, arm_xyz_weight, arm_xyz_weight,
                                         arm_rpy_weight, arm_rpy_weight, arm_rpy_weight,
                                         arm_fa_weight, arm_fa_weight,
                                         base_xy_weight, base_xy_weight,
                                         base_z_weight, base_theta_weight};
     vector<bool> continuous = {false, false, false, true, true, true, false, false, false, false, false, true};
-    vector<double> snap_dist = {0.40, 0.40, 0.40, 
-      2.0*M_PI, 2.0*M_PI, 2.0*M_PI, 
+    vector<double> snap_dist = {0.40, 0.40, 0.40,
+      2.0*M_PI, 2.0*M_PI, 2.0*M_PI,
       2.0*M_PI, 2.0*M_PI,
       0.04, 0.04, 0.31, 3.0*M_PI/16.0};
     heur_ = new EGraphEuclideanHeuristic(*(m_env.get()),heuristic_weights,continuous);
       */
 
-    vector<double> snap_dist = {0.40, 0.40, 0.40, 
+    vector<double> snap_dist = {0.40, 0.40, 0.40,
       2.0*M_PI, 0.04, 0.04, 0.04, 0.04, 0.31};
     heur_ = new EGraphEuclideanHeuristic(*(m_env.get()));
     heur_->setSnapDist(snap_dist);
     EGraphManager<vector<double> >* egraph_mgr = new EGraphManager<vector<double> >(egraph_, m_env.get(), heur_);
     bool forward_search = true;
-    m_ara_planner.reset(new LazyAEGPlanner<vector<double> >(m_env.get(), forward_search, egraph_mgr));
+    num_islands = 2;
+    m_ara_planner.reset(new LazyAEGPlanner<vector<double> >(m_env.get(), forward_search, egraph_mgr, num_islands));
     m_egraph_vis.reset(new EGraphVisualizer(egraph_, m_env.get()));
 
     interrupt_sub_ = nh.subscribe("/sbpl_planning/interrupt", 1, &EnvInterfaces::interruptPlannerCallback,this);
@@ -88,21 +89,21 @@ void EnvInterfaces::startOMPLPlanners(){
     m_rrt.reset(new OMPLPR2Planner(m_env->getCollisionSpace(), RRT));
     m_prm.reset(new OMPLPR2Planner(m_env->getCollisionSpace(), PRM_P));
     m_rrtstar.reset(new OMPLPR2Planner(m_env->getCollisionSpace(), RRTSTAR));
-    m_rrtstar_first_sol.reset(new OMPLPR2Planner(m_env->getCollisionSpace(), 
+    m_rrtstar_first_sol.reset(new OMPLPR2Planner(m_env->getCollisionSpace(),
                                                  RRTSTARFIRSTSOL));
 }
 
 /*! \brief grabs parameters from param server
  */
 void EnvInterfaces::getParams(){
-    m_nodehandle.param<string>("reference_frame", m_params.ref_frame, 
+    m_nodehandle.param<string>("reference_frame", m_params.ref_frame,
                                     string("map"));
 }
 
 /*! \brief advertise the planPath callback
  */
 void EnvInterfaces::bindPlanPathToEnv(string service_name){
-    m_plan_service = m_nodehandle.advertiseService(service_name, 
+    m_plan_service = m_nodehandle.advertiseService(service_name,
                                                    &EnvInterfaces::planPathCallback,
                                                    this);
 }
@@ -271,7 +272,7 @@ bool EnvInterfaces::GenerateExperimentFile(std_srvs::Empty::Request &req, std_sr
 /*! \brief takes in a service call request and runs the planner, spits back
  * statistics and a plan.
  */
-bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req, 
+bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
                                      GetMobileArmPlan::Response &res)
 {
     boost::unique_lock<boost::mutex> lock(mutex);
@@ -296,13 +297,13 @@ bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
     larm_offset.p.y(req.larm_object.pose.position.y);
     larm_offset.p.z(req.larm_object.pose.position.z);
 
-    rarm_offset.M = Rotation::Quaternion(req.rarm_object.pose.orientation.x, 
-                                         req.rarm_object.pose.orientation.y, 
-                                         req.rarm_object.pose.orientation.z, 
+    rarm_offset.M = Rotation::Quaternion(req.rarm_object.pose.orientation.x,
+                                         req.rarm_object.pose.orientation.y,
+                                         req.rarm_object.pose.orientation.z,
                                          req.rarm_object.pose.orientation.w);
-    larm_offset.M = Rotation::Quaternion(req.larm_object.pose.orientation.x, 
-                                         req.larm_object.pose.orientation.y, 
-                                         req.larm_object.pose.orientation.z, 
+    larm_offset.M = Rotation::Quaternion(req.larm_object.pose.orientation.x,
+                                         req.larm_object.pose.orientation.y,
+                                         req.larm_object.pose.orientation.z,
                                          req.larm_object.pose.orientation.w);
     search_request->left_arm_object = larm_offset;
     search_request->right_arm_object = rarm_offset;
@@ -314,6 +315,7 @@ bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
 
     res.stats_field_names.resize(18);
     res.stats.resize(18);
+    vector<int> island_id(num_islands);
     int start_id, goal_id;
     vector<double> stats;
     vector<string> stat_names;
@@ -326,7 +328,30 @@ bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
 
     double total_planning_time = clock();
     double t0 = ros::Time::now().toSec();
-    bool retVal = m_env->configureRequest(search_request, start_id, goal_id);
+
+
+    bool retVal = m_env->configureRequest(search_request, start_id, goal_id);   //just to avoid error
+
+    // for start
+    retVal = m_env->configureRequest(search_request, island_id[0], goal_id);
+    //fadi
+    vector<double> rarm_island, larm_island, body_island;    //fadi
+
+    for (int i=0; i<num_islands-1; i++){
+      rarm_island.clear();
+      larm_island.clear();
+      body_island.clear();
+      body_island.insert(body_island.begin(), req.body_island.begin() + i*4, req.body_island.begin() + i*4 + 4);
+      larm_island.insert(larm_island.begin(), req.larm_island.begin() + i*7, req.larm_island.begin() + i*7 + 7);
+      rarm_island.insert(rarm_island.begin(), req.rarm_island.begin() + i*7, req.rarm_island.begin() + i*7 + 7);
+
+      // printf("sizes %d %d island %d\n", body_island.size(), larm_island.size(), i);
+      search_request->base_start = body_island;
+      search_request->left_arm_start = LeftContArmState(larm_island);
+      search_request->right_arm_start = RightContArmState(rarm_island);
+      retVal = m_env->configureRequest(search_request, island_id[i+1], goal_id);
+    }
+
     if(!retVal){
       ROS_ERROR("Unable to configure request for Trial ID: %d", counter);
 
@@ -340,7 +365,7 @@ bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
       res.stats = stats;
       return true;
     }
-    ROS_INFO("configuring time (plus validity checking) is %f %f", ros::Time::now().toSec() - t0, 
+    ROS_INFO("configuring time (plus validity checking) is %f %f", ros::Time::now().toSec() - t0,
                 (clock()-total_planning_time)/static_cast<double>(CLOCKS_PER_SEC));
 
     if(req.use_ompl){
@@ -369,9 +394,12 @@ bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
       return true;
     }
     else{
-      m_ara_planner->set_start(start_id);
+      m_ara_planner->set_start(start_id);   //to avoid error
+      m_ara_planner->set_islands(0,island_id[0]);
+      m_ara_planner->set_islands(1,island_id[1]);
+      m_ara_planner->set_islands(2,island_id[2]);
       m_ara_planner->force_planning_from_scratch();
-      vector<int> soln;
+      vector<vector<int>> soln;
       int soln_cost;
 
       EGraphReplanParams params(req.allocated_planning_time);
@@ -399,32 +427,32 @@ bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
       m_ara_planner->feedback_last_path();
       ROS_INFO("feedback time is %f", ros::Time::now().toSec() - t3);
 
-      if (isPlanFound){
-        ROS_INFO("Plan found. Moving on to reconstruction.");
-        double t4 = ros::Time::now().toSec();
-        states =  m_env->reconstructPath(soln);
-        ROS_INFO("env reconsturction time is %f", ros::Time::now().toSec() - t4);
-        total_planning_time = clock() - total_planning_time;
-        ROS_INFO("total time %f %f", ros::Time::now().toSec()-t0, 
-            total_planning_time/static_cast<double>(CLOCKS_PER_SEC));
-        vector<string> stat_names;
-        vector<double> stats;
-        packageStats(stat_names, stats, soln_cost, states.size(),
-            total_planning_time);
-        m_stats_writer.writeSBPL(stats, states, counter, planner_prefix);
-        res.stats_field_names = stat_names;
-        res.stats = stats;
+      // if (isPlanFound){
+      //   ROS_INFO("Plan found. Moving on to reconstruction.");
+      //   double t4 = ros::Time::now().toSec();
+      //   states =  m_env->reconstructPath(soln[0]);
+      //   ROS_INFO("env reconsturction time is %f", ros::Time::now().toSec() - t4);
+      //   total_planning_time = clock() - total_planning_time;
+      //   ROS_INFO("total time %f %f", ros::Time::now().toSec()-t0,
+      //       total_planning_time/static_cast<double>(CLOCKS_PER_SEC));
+      //   vector<string> stat_names;
+      //   vector<double> stats;
+      //   packageStats(stat_names, stats, soln_cost, states.size(),
+      //       total_planning_time);
+      //   m_stats_writer.writeSBPL(stats, states, counter, planner_prefix);
+      //   res.stats_field_names = stat_names;
+      //   res.stats = stats;
 
-        if(req.save_egraph)
-          egraph_->save("fbp_egraph.eg");
-      } 
-      else {
-        ROS_INFO("No plan found!");
-        packageStats(stat_names, stats, soln_cost, states.size(), total_planning_time);
-        res.stats_field_names = stat_names;
-        res.stats = stats;
-        ROS_INFO("No plan found in %s!", planner_prefix.c_str());
-      }
+      //   if(req.save_egraph)
+      //     egraph_->save("fbp_egraph.eg");
+      // }
+      // else {
+      //   ROS_INFO("No plan found!");
+      //   packageStats(stat_names, stats, soln_cost, states.size(), total_planning_time);
+      //   res.stats_field_names = stat_names;
+      //   res.stats = stats;
+      //   ROS_INFO("No plan found in %s!", planner_prefix.c_str());
+      // }
       m_egraph_vis->visualize();
       return true;
     }
@@ -433,13 +461,13 @@ bool EnvInterfaces::planPathCallback(GetMobileArmPlan::Request &req,
 /*! \brief fills in two vectors with stat names and values. needs a couple
  * parameters that can't be retrieved from the planner member variable.
  */
-void EnvInterfaces::packageStats(vector<string>& stat_names, 
+void EnvInterfaces::packageStats(vector<string>& stat_names,
                                  vector<double>& stats,
                                  int solution_cost,
                                  size_t solution_size,
                                  double total_planning_time)
 {
-    
+
     stat_names.resize(4);
     stats.resize(4);
     stat_names[0] = "total plan time";
@@ -465,8 +493,8 @@ void EnvInterfaces::packageStats(vector<string>& stat_names,
 
 
 bool EnvInterfaces::bindCollisionSpaceToTopic(string topic_name){
-    m_collision_space_interface->bindCollisionSpaceToTopic(topic_name, 
-                                                          m_tf, 
+    m_collision_space_interface->bindCollisionSpaceToTopic(topic_name,
+                                                          m_tf,
                                                           m_params.ref_frame);
     return true;
 }
@@ -480,7 +508,7 @@ void EnvInterfaces::bindNavMapToTopic(string topic){
  * you want to be the origin. probably is going to be 0,0. width and height are
  * the dimensions that you want the new map to be starting from 0,0. in meters.
  */
-void EnvInterfaces::crop2DMap(const nav_msgs::MapMetaData& map_info, 
+void EnvInterfaces::crop2DMap(const nav_msgs::MapMetaData& map_info,
                               const std::vector<unsigned char>& v,
                               double new_origin_x, double new_origin_y,
                               double width, double height){
@@ -497,9 +525,9 @@ void EnvInterfaces::crop2DMap(const nav_msgs::MapMetaData& map_info,
     int new_width = static_cast<int>((width/res) + 1 + 0.5);
     int new_height = static_cast<int>((height/res) + 1 + 0.5);
     ROS_DEBUG_NAMED(HEUR_LOG, "new origin: %d %d, width and height: %d %d",
-                              new_origin_x_idx, new_origin_y_idx, new_width, 
+                              new_origin_x_idx, new_origin_y_idx, new_width,
                               new_height);
-    ROS_DEBUG_NAMED(HEUR_LOG, "size of map %lu %lu", tmp_map.size(), 
+    ROS_DEBUG_NAMED(HEUR_LOG, "size of map %lu %lu", tmp_map.size(),
                                                      tmp_map[0].size());
 
     vector<vector<unsigned char> > new_map(new_height);
@@ -582,16 +610,16 @@ void EnvInterfaces::loadNavMap(const nav_msgs::OccupancyGridPtr& map){
     // Publish the full costmap
     m_costmap_publisher->publishCostmap();
     m_costmap_publisher->publishFootprint();
-    
+
     // std::vector<signed char> final_map;
 
     // TODO: Check if this is the right thing to do : Take the resolution from
     // the map for the occupancy grid's values.
     double width = dimX*map->info.resolution;
     double height = dimY*map->info.resolution;
-    
+
     crop2DMap(map->info, uncropped_map, 0, 0, width, height);
-    
+
     // Don't want to publish this.
     nav_msgs::OccupancyGrid costmap_pub;
     costmap_pub.header.frame_id = "/map";

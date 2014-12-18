@@ -15,9 +15,9 @@ using namespace monolithic_pr2_planner;
 using namespace boost;
 
 // stateid2mapping pointer inherited from sbpl interface. needed for planner.
-Environment::Environment(ros::NodeHandle nh) : 
-    m_hash_mgr(new HashManager(&StateID2IndexMapping)), 
-    m_nodehandle(nh), m_mprims(m_goal), 
+Environment::Environment(ros::NodeHandle nh) :
+    m_hash_mgr(new HashManager(&StateID2IndexMapping)),
+    m_nodehandle(nh), m_mprims(m_goal),
     m_heur_mgr(new HeuristicMgr()) {
     m_param_catalog.fetch(nh);
     configurePlanningDomain();
@@ -70,7 +70,7 @@ int Environment::GetGoalHeuristic(int stateID, int goal_id){
     switch (heuristic_id) {
       case 0:  // Anchor
         return std::max((*values).at("admissible_endeff"), (*values).at("admissible_base"));
-      case 1:  // ARA Heur 
+      case 1:  // ARA Heur
         return std::max((*values).at("admissible_endeff"), (*values).at("admissible_base"));
       case 2:  // Base1, Base2 heur
         return static_cast<int>(0.5f*(*values).at("base_with_rot_0") + 0.5f*(*values).at("endeff_rot_goal"));
@@ -117,7 +117,7 @@ int Environment::GetTrueCost(int parentID, int childID){
     bool matchesEndID = successor->id() == childID;
     assert(matchesEndID);
 
-    bool valid_successor = (m_cspace_mgr->isValidSuccessor(*successor, t_data) && 
+    bool valid_successor = (m_cspace_mgr->isValidSuccessor(*successor, t_data) &&
                             m_cspace_mgr->isValidTransitionStates(t_data));
     if (!valid_successor){
         return -1;
@@ -125,7 +125,7 @@ int Environment::GetTrueCost(int parentID, int childID){
     return t_data.cost();
 }
 
-void Environment::GetLazySuccsWithUniqueIds(int sourceStateID, vector<int>* succIDs, 
+void Environment::GetLazySuccsWithUniqueIds(int g_id, int sourceStateID, vector<int>* succIDs,
                            vector<int>* costs, std::vector<bool>* isTrueCost){
 
     if (!m_using_lazy){
@@ -136,7 +136,7 @@ void Environment::GetLazySuccsWithUniqueIds(int sourceStateID, vector<int>* succ
     }
 
     vector<MotionPrimitivePtr> all_mprims = m_mprims.getMotionPrims();
-    ROS_DEBUG_NAMED(SEARCH_LOG, "==================Expanding state %d==================", 
+    ROS_DEBUG_NAMED(SEARCH_LOG, "==================Expanding state %d==================",
                     sourceStateID);
     succIDs->clear();
     succIDs->reserve(all_mprims.size());
@@ -147,7 +147,13 @@ void Environment::GetLazySuccsWithUniqueIds(int sourceStateID, vector<int>* succ
     ROS_DEBUG_NAMED(SEARCH_LOG, "Source state is:");
     source_state->robot_pose().printToDebug(SEARCH_LOG);
     if(m_param_catalog.m_visualization_params.expansions){
-        source_state->robot_pose().visualize();
+
+        int Number = g_id;       // number to be converted to a string
+        string Result;          // string which will contain the result
+        ostringstream convert;   // stream used for the conversion
+        convert << Number;      // insert the textual representation of 'Number' in the characters in the stream
+        Result = convert.str();
+        source_state->robot_pose().visualize(250/2*g_id,Result);
         usleep(10000);
     }
 
@@ -179,7 +185,7 @@ void Environment::GetLazySuccsWithUniqueIds(int sourceStateID, vector<int>* succ
             }
         }
         m_hash_mgr->save(successor);
-        Edge key; 
+        Edge key;
         succIDs->push_back(successor->id());
         key = Edge(sourceStateID, successor->id());
         m_edges.insert(map<Edge, MotionPrimitivePtr>::value_type(key, mprim));
@@ -240,7 +246,7 @@ void Environment::GetSuccs(int sourceStateID, vector<int>* succIDs, vector<int>*
 // primitives about the goal state
 bool Environment::setStartGoal(SearchRequestPtr search_request,
                                int& start_id, int& goal_id){
-    RobotState start_pose(search_request->m_params->base_start, 
+    RobotState start_pose(search_request->m_params->base_start,
                          search_request->m_params->right_arm_start,
                          search_request->m_params->left_arm_start);
     ContObjectState obj_state = start_pose.getObjectStateRelMap();
@@ -292,14 +298,14 @@ bool Environment::setStartGoal(SearchRequestPtr search_request,
 // primitives about the goal state
 bool Environment::setCompleteStartGoal(SearchRequestPtr search_request,
                                        int& start_id, int& goal_id){
-    RobotState start_pose(search_request->m_params->base_start, 
+    RobotState start_pose(search_request->m_params->base_start,
                          search_request->m_params->right_arm_start,
                          search_request->m_params->left_arm_start);
     ContObjectState start_obj_state = start_pose.getObjectStateRelMap();
     start_obj_state.printToInfo(SEARCH_LOG);
 
   ROS_ERROR("wha %f %f", search_request->m_params->base_goal.x(), search_request->m_params->base_goal.y());
-    RobotState goal_pose(search_request->m_params->base_goal, 
+    RobotState goal_pose(search_request->m_params->base_goal,
                          search_request->m_params->right_arm_goal,
                          search_request->m_params->left_arm_goal);
     ContObjectState goal_obj_state = goal_pose.getObjectStateRelMap();
@@ -339,7 +345,7 @@ bool Environment::setCompleteStartGoal(SearchRequestPtr search_request,
     ArmAdaptiveMotionPrimitive::goal(*m_goal);
     GraphState* goalptr = m_complete_goal.get();
     FullBodyAdaptiveMotionPrimitive::goal(goalptr);
-    //m_goal 
+    //m_goal
 
     //m_goal = search_request->createGoalState();
 
@@ -380,10 +386,10 @@ int Environment::saveFakeGoalState(const GraphStatePtr& start_graph_state){
 
 // this sets up the environment for things that are query independent.
 void Environment::configurePlanningDomain(){
-    // used for collision space and discretizing plain xyz into grid world 
+    // used for collision space and discretizing plain xyz into grid world
     OccupancyGridUser::init(m_param_catalog.m_occupancy_grid_params,
                         m_param_catalog.m_robot_resolution_params);
-    
+
 
     // used for discretization of robot movements
     ContArmState::setRobotResolutionParams(m_param_catalog.m_robot_resolution_params);
@@ -413,7 +419,7 @@ void Environment::configurePlanningDomain(){
     // load up motion primitives
     m_mprims.loadMPrims(m_param_catalog.m_motion_primitive_params);
 
-    // load up static pviz instance for visualizations. 
+    // load up static pviz instance for visualizations.
     Visualizer::createPVizInstance();
     Visualizer::setReferenceFrame(std::string("/map"));
 }
@@ -441,8 +447,8 @@ void Environment::configureQuerySpecificParams(SearchRequestPtr search_request){
  */
 vector<FullBodyState> Environment::reconstructPath(vector<int> soln_path){
     PathPostProcessor postprocessor(m_hash_mgr, m_cspace_mgr);
-    vector<FullBodyState> final_path = postprocessor.reconstructPath(soln_path, 
-                                                                     *m_goal, 
+    vector<FullBodyState> final_path = postprocessor.reconstructPath(soln_path,
+                                                                     *m_goal,
                                                                      m_mprims.getMotionPrims(),
                                                                      m_edges);
     if(m_param_catalog.m_visualization_params.final_path){

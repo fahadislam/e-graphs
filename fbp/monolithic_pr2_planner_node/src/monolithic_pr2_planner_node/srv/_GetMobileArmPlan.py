@@ -8,11 +8,13 @@ import geometry_msgs.msg
 import std_msgs.msg
 
 class GetMobileArmPlanRequest(genpy.Message):
-  _md5sum = "923e6f571b8634464981a386a42c875a"
+  _md5sum = "c708bb7231732c3e2769519b41d91ff2"
   _type = "monolithic_pr2_planner_node/GetMobileArmPlanRequest"
   _has_header = False #flag to mark the presence of a Header object
   _full_text = """
 geometry_msgs/PoseStamped start
+geometry_msgs/PoseStamped island
+
 
 int8 planning_mode
 float64 allocated_planning_time
@@ -25,6 +27,9 @@ float64[] body_start
 float64[] rarm_goal
 float64[] larm_goal
 float64[] body_goal
+float64[] rarm_island
+float64[] larm_island
+float64[] body_island
 
 
 geometry_msgs/PoseStamped goal
@@ -104,8 +109,8 @@ float64 z
 float64 w
 
 """
-  __slots__ = ['start','planning_mode','allocated_planning_time','return_first_solution','rarm_start','larm_start','body_start','rarm_goal','larm_goal','body_goal','goal','xyz_tolerance','roll_tolerance','pitch_tolerance','yaw_tolerance','rarm_object','larm_object','use_ompl','use_kd_heuristic','initial_eps','final_eps','dec_eps','egraph_eps','final_egraph_eps','dec_egraph_eps','use_egraph','feedback_path','save_egraph']
-  _slot_types = ['geometry_msgs/PoseStamped','int8','float64','bool','float64[]','float64[]','float64[]','float64[]','float64[]','float64[]','geometry_msgs/PoseStamped','float64','float64','float64','float64','geometry_msgs/PoseStamped','geometry_msgs/PoseStamped','bool','bool','float64','float64','float64','float64','float64','float64','bool','bool','bool']
+  __slots__ = ['start','island','planning_mode','allocated_planning_time','return_first_solution','rarm_start','larm_start','body_start','rarm_goal','larm_goal','body_goal','rarm_island','larm_island','body_island','goal','xyz_tolerance','roll_tolerance','pitch_tolerance','yaw_tolerance','rarm_object','larm_object','use_ompl','use_kd_heuristic','initial_eps','final_eps','dec_eps','egraph_eps','final_egraph_eps','dec_egraph_eps','use_egraph','feedback_path','save_egraph']
+  _slot_types = ['geometry_msgs/PoseStamped','geometry_msgs/PoseStamped','int8','float64','bool','float64[]','float64[]','float64[]','float64[]','float64[]','float64[]','float64[]','float64[]','float64[]','geometry_msgs/PoseStamped','float64','float64','float64','float64','geometry_msgs/PoseStamped','geometry_msgs/PoseStamped','bool','bool','float64','float64','float64','float64','float64','float64','bool','bool','bool']
 
   def __init__(self, *args, **kwds):
     """
@@ -115,7 +120,7 @@ float64 w
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       start,planning_mode,allocated_planning_time,return_first_solution,rarm_start,larm_start,body_start,rarm_goal,larm_goal,body_goal,goal,xyz_tolerance,roll_tolerance,pitch_tolerance,yaw_tolerance,rarm_object,larm_object,use_ompl,use_kd_heuristic,initial_eps,final_eps,dec_eps,egraph_eps,final_egraph_eps,dec_egraph_eps,use_egraph,feedback_path,save_egraph
+       start,island,planning_mode,allocated_planning_time,return_first_solution,rarm_start,larm_start,body_start,rarm_goal,larm_goal,body_goal,rarm_island,larm_island,body_island,goal,xyz_tolerance,roll_tolerance,pitch_tolerance,yaw_tolerance,rarm_object,larm_object,use_ompl,use_kd_heuristic,initial_eps,final_eps,dec_eps,egraph_eps,final_egraph_eps,dec_egraph_eps,use_egraph,feedback_path,save_egraph
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -126,6 +131,8 @@ float64 w
       #message fields cannot be None, assign default values for those that are
       if self.start is None:
         self.start = geometry_msgs.msg.PoseStamped()
+      if self.island is None:
+        self.island = geometry_msgs.msg.PoseStamped()
       if self.planning_mode is None:
         self.planning_mode = 0
       if self.allocated_planning_time is None:
@@ -144,6 +151,12 @@ float64 w
         self.larm_goal = []
       if self.body_goal is None:
         self.body_goal = []
+      if self.rarm_island is None:
+        self.rarm_island = []
+      if self.larm_island is None:
+        self.larm_island = []
+      if self.body_island is None:
+        self.body_island = []
       if self.goal is None:
         self.goal = geometry_msgs.msg.PoseStamped()
       if self.xyz_tolerance is None:
@@ -182,6 +195,7 @@ float64 w
         self.save_egraph = False
     else:
       self.start = geometry_msgs.msg.PoseStamped()
+      self.island = geometry_msgs.msg.PoseStamped()
       self.planning_mode = 0
       self.allocated_planning_time = 0.
       self.return_first_solution = False
@@ -191,6 +205,9 @@ float64 w
       self.rarm_goal = []
       self.larm_goal = []
       self.body_goal = []
+      self.rarm_island = []
+      self.larm_island = []
+      self.body_island = []
       self.goal = geometry_msgs.msg.PoseStamped()
       self.xyz_tolerance = 0.
       self.roll_tolerance = 0.
@@ -231,7 +248,15 @@ float64 w
         length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_7dbdB.pack(_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution))
+      buff.write(_struct_7d3I.pack(_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.island.header.seq, _x.island.header.stamp.secs, _x.island.header.stamp.nsecs))
+      _x = self.island.header.frame_id
+      length = len(_x)
+      if python3 or type(_x) == unicode:
+        _x = _x.encode('utf-8')
+        length = len(_x)
+      buff.write(struct.pack('<I%ss'%length, length, _x))
+      _x = self
+      buff.write(_struct_7dbdB.pack(_x.island.pose.position.x, _x.island.pose.position.y, _x.island.pose.position.z, _x.island.pose.orientation.x, _x.island.pose.orientation.y, _x.island.pose.orientation.z, _x.island.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution))
       length = len(self.rarm_start)
       buff.write(_struct_I.pack(length))
       pattern = '<%sd'%length
@@ -256,6 +281,18 @@ float64 w
       buff.write(_struct_I.pack(length))
       pattern = '<%sd'%length
       buff.write(struct.pack(pattern, *self.body_goal))
+      length = len(self.rarm_island)
+      buff.write(_struct_I.pack(length))
+      pattern = '<%sd'%length
+      buff.write(struct.pack(pattern, *self.rarm_island))
+      length = len(self.larm_island)
+      buff.write(_struct_I.pack(length))
+      pattern = '<%sd'%length
+      buff.write(struct.pack(pattern, *self.larm_island))
+      length = len(self.body_island)
+      buff.write(_struct_I.pack(length))
+      pattern = '<%sd'%length
+      buff.write(struct.pack(pattern, *self.body_island))
       _x = self
       buff.write(_struct_3I.pack(_x.goal.header.seq, _x.goal.header.stamp.secs, _x.goal.header.stamp.nsecs))
       _x = self.goal.header.frame_id
@@ -293,6 +330,8 @@ float64 w
     try:
       if self.start is None:
         self.start = geometry_msgs.msg.PoseStamped()
+      if self.island is None:
+        self.island = geometry_msgs.msg.PoseStamped()
       if self.goal is None:
         self.goal = geometry_msgs.msg.PoseStamped()
       if self.rarm_object is None:
@@ -315,8 +354,21 @@ float64 w
         self.start.header.frame_id = str[start:end]
       _x = self
       start = end
+      end += 68
+      (_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.island.header.seq, _x.island.header.stamp.secs, _x.island.header.stamp.nsecs,) = _struct_7d3I.unpack(str[start:end])
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      start = end
+      end += length
+      if python3:
+        self.island.header.frame_id = str[start:end].decode('utf-8')
+      else:
+        self.island.header.frame_id = str[start:end]
+      _x = self
+      start = end
       end += 66
-      (_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution,) = _struct_7dbdB.unpack(str[start:end])
+      (_x.island.pose.position.x, _x.island.pose.position.y, _x.island.pose.position.z, _x.island.pose.orientation.x, _x.island.pose.orientation.y, _x.island.pose.orientation.z, _x.island.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution,) = _struct_7dbdB.unpack(str[start:end])
       self.return_first_solution = bool(self.return_first_solution)
       start = end
       end += 4
@@ -360,6 +412,27 @@ float64 w
       start = end
       end += struct.calcsize(pattern)
       self.body_goal = struct.unpack(pattern, str[start:end])
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      pattern = '<%sd'%length
+      start = end
+      end += struct.calcsize(pattern)
+      self.rarm_island = struct.unpack(pattern, str[start:end])
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      pattern = '<%sd'%length
+      start = end
+      end += struct.calcsize(pattern)
+      self.larm_island = struct.unpack(pattern, str[start:end])
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      pattern = '<%sd'%length
+      start = end
+      end += struct.calcsize(pattern)
+      self.body_island = struct.unpack(pattern, str[start:end])
       _x = self
       start = end
       end += 12
@@ -429,7 +502,15 @@ float64 w
         length = len(_x)
       buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_7dbdB.pack(_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution))
+      buff.write(_struct_7d3I.pack(_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.island.header.seq, _x.island.header.stamp.secs, _x.island.header.stamp.nsecs))
+      _x = self.island.header.frame_id
+      length = len(_x)
+      if python3 or type(_x) == unicode:
+        _x = _x.encode('utf-8')
+        length = len(_x)
+      buff.write(struct.pack('<I%ss'%length, length, _x))
+      _x = self
+      buff.write(_struct_7dbdB.pack(_x.island.pose.position.x, _x.island.pose.position.y, _x.island.pose.position.z, _x.island.pose.orientation.x, _x.island.pose.orientation.y, _x.island.pose.orientation.z, _x.island.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution))
       length = len(self.rarm_start)
       buff.write(_struct_I.pack(length))
       pattern = '<%sd'%length
@@ -454,6 +535,18 @@ float64 w
       buff.write(_struct_I.pack(length))
       pattern = '<%sd'%length
       buff.write(self.body_goal.tostring())
+      length = len(self.rarm_island)
+      buff.write(_struct_I.pack(length))
+      pattern = '<%sd'%length
+      buff.write(self.rarm_island.tostring())
+      length = len(self.larm_island)
+      buff.write(_struct_I.pack(length))
+      pattern = '<%sd'%length
+      buff.write(self.larm_island.tostring())
+      length = len(self.body_island)
+      buff.write(_struct_I.pack(length))
+      pattern = '<%sd'%length
+      buff.write(self.body_island.tostring())
       _x = self
       buff.write(_struct_3I.pack(_x.goal.header.seq, _x.goal.header.stamp.secs, _x.goal.header.stamp.nsecs))
       _x = self.goal.header.frame_id
@@ -492,6 +585,8 @@ float64 w
     try:
       if self.start is None:
         self.start = geometry_msgs.msg.PoseStamped()
+      if self.island is None:
+        self.island = geometry_msgs.msg.PoseStamped()
       if self.goal is None:
         self.goal = geometry_msgs.msg.PoseStamped()
       if self.rarm_object is None:
@@ -514,8 +609,21 @@ float64 w
         self.start.header.frame_id = str[start:end]
       _x = self
       start = end
+      end += 68
+      (_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.island.header.seq, _x.island.header.stamp.secs, _x.island.header.stamp.nsecs,) = _struct_7d3I.unpack(str[start:end])
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      start = end
+      end += length
+      if python3:
+        self.island.header.frame_id = str[start:end].decode('utf-8')
+      else:
+        self.island.header.frame_id = str[start:end]
+      _x = self
+      start = end
       end += 66
-      (_x.start.pose.position.x, _x.start.pose.position.y, _x.start.pose.position.z, _x.start.pose.orientation.x, _x.start.pose.orientation.y, _x.start.pose.orientation.z, _x.start.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution,) = _struct_7dbdB.unpack(str[start:end])
+      (_x.island.pose.position.x, _x.island.pose.position.y, _x.island.pose.position.z, _x.island.pose.orientation.x, _x.island.pose.orientation.y, _x.island.pose.orientation.z, _x.island.pose.orientation.w, _x.planning_mode, _x.allocated_planning_time, _x.return_first_solution,) = _struct_7dbdB.unpack(str[start:end])
       self.return_first_solution = bool(self.return_first_solution)
       start = end
       end += 4
@@ -559,6 +667,27 @@ float64 w
       start = end
       end += struct.calcsize(pattern)
       self.body_goal = numpy.frombuffer(str[start:end], dtype=numpy.float64, count=length)
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      pattern = '<%sd'%length
+      start = end
+      end += struct.calcsize(pattern)
+      self.rarm_island = numpy.frombuffer(str[start:end], dtype=numpy.float64, count=length)
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      pattern = '<%sd'%length
+      start = end
+      end += struct.calcsize(pattern)
+      self.larm_island = numpy.frombuffer(str[start:end], dtype=numpy.float64, count=length)
+      start = end
+      end += 4
+      (length,) = _struct_I.unpack(str[start:end])
+      pattern = '<%sd'%length
+      start = end
+      end += struct.calcsize(pattern)
+      self.body_island = numpy.frombuffer(str[start:end], dtype=numpy.float64, count=length)
       _x = self
       start = end
       end += 12
@@ -612,10 +741,10 @@ float64 w
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
+_struct_7dbdB = struct.Struct("<7dbdB")
 _struct_3I = struct.Struct("<3I")
 _struct_11d3I = struct.Struct("<11d3I")
 _struct_7d2B6d3B = struct.Struct("<7d2B6d3B")
-_struct_7dbdB = struct.Struct("<7dbdB")
 _struct_7d3I = struct.Struct("<7d3I")
 """autogenerated by genpy from monolithic_pr2_planner_node/GetMobileArmPlanResponse.msg. Do not edit."""
 import sys
@@ -1293,6 +1422,6 @@ _struct_3I = struct.Struct("<3I")
 _struct_2i = struct.Struct("<2i")
 class GetMobileArmPlan(object):
   _type          = 'monolithic_pr2_planner_node/GetMobileArmPlan'
-  _md5sum = '35db56c3f7a5b3e0b9279337bc1407f2'
+  _md5sum = '8d054bb46c64c8c22b6a8db30723002c'
   _request_class  = GetMobileArmPlanRequest
   _response_class = GetMobileArmPlanResponse

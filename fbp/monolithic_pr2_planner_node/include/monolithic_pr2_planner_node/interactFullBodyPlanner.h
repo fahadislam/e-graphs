@@ -23,6 +23,9 @@ class ControlPlanner{
     vector<double> start_angles0;
     vector<double> goal_angles0;
     vector<double> angles1;
+
+    vector<double> rarm_islands, larm_islands, body_islands;    //fadi
+
     double torso_z;
     interactive_markers::InteractiveMarkerServer* int_marker_server;
     interactive_markers::MenuHandler menu_handler;

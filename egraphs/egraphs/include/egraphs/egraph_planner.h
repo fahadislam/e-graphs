@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2013, Mike Phillips and Maxim Likhachev
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
  *     * Neither the name of the University of Pennsylvania nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -35,6 +35,7 @@
 #include <egraphs/planner_state.h>
 
 //class LazyAEGListElement;
+
 
 class EGraphReplanParams : public ReplanParams{
   public:
@@ -72,10 +73,10 @@ class LazyAEGPlanner : public SBPLPlanner{
             return -1;
         };
 
-        virtual int replan(int start, vector<int>* solution_stateIDs_V, 
+        virtual int replan(int start, vector<vector<int>>* solution_stateIDs_V,
                            EGraphReplanParams params, int* solcost);
-        virtual int replan(std::vector<int>* solution_stateIDs_V, EGraphReplanParams params);
-        virtual int replan(std::vector<int>* solution_stateIDs_V, EGraphReplanParams params, int* solcost);
+        virtual int replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams params);
+        virtual int replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams params, int* solcost);
 
         virtual int set_goal(int goal_stateID){ROS_WARN("set_goal is not used. we assume the goal conditions have been set in the environment and use EGraphable::isGoal");return 1;};
         virtual int set_goal();
@@ -96,8 +97,8 @@ class LazyAEGPlanner : public SBPLPlanner{
             printf("Not supported. Use ReplanParams");
         };
 
-        LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bforwardsearch, 
-                       EGraphManagerPtr egraph_mgr);
+        LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bforwardsearch,
+                       EGraphManagerPtr egraph_mgr, int num_isls);
         ~LazyAEGPlanner(){};
 
         map<string,double> getStats(){return stat_map_;};
@@ -106,21 +107,33 @@ class LazyAEGPlanner : public SBPLPlanner{
         void setLazyValidation(bool b){ params.use_lazy_validation = b; };
         void setValidateDuringPlanning(bool b){ params.validate_during_planning = b; };
 
+        int set_islands(int q_id, int id);  //fadi
     protected:
         //data structures (open and incons lists)
-        CHeap heap;
-        vector<LazyAEGState*> incons;
-        vector<LazyAEGState*> states;
+
+        //fadi
+        std::vector<CHeap> heaps;
+        std::vector<std::vector<LazyAEGState*>> incons;
+        std::vector<std::vector<LazyAEGState*>> states;
 
         EGraphReplanParams params;
         EGraphManagerPtr egraph_mgr_;
 
         bool bforwardsearch; //if true, then search proceeds forward, otherwise backward
-        LazyAEGState goal_state;
+        vector<LazyAEGState> goal_state;
         LazyAEGState* start_state;
+        std::vector<LazyAEGState*> island_state;     //fadi
         //int goal_state_id;
         int start_state_id;
+        std::vector<int> island_state_id;       //fadi
+        // EGraphVisualizer* egraph_vis_;
 
+        // ros::Publisher marker_pub_expansion;
+        // visualization_msgs::MarkerArray ma;
+
+        // EGraphMarkerMaker* converter_;
+
+        int num_islands;
         //search member variables
         double eps;
         double eps_satisfied;
@@ -146,25 +159,25 @@ class LazyAEGPlanner : public SBPLPlanner{
 
         bool interruptFlag;
 
-        bool reconstructSuccs(LazyAEGState* state, LazyAEGState*& next_state, 
+        bool reconstructSuccs(LazyAEGState* state, LazyAEGState*& next_state,
                               vector<int>* wholePathIds, vector<int>* costs);
 
-        virtual LazyAEGState* GetState(int id);
-        virtual void ExpandState(LazyAEGState* parent);
-        virtual void EvaluateState(LazyAEGState* parent);
-        void getNextLazyElement(LazyAEGState* state);
-        void insertLazyList(LazyAEGState* state, LazyAEGState* parent, int edgeCost, bool isTrueCost, EdgeType edgeType, int snap_midpoint);
-        void putStateInHeap(LazyAEGState* state);
-        void updateGoal(LazyAEGState* state);
+        virtual LazyAEGState* GetState(int q_id, int id);
+        virtual void ExpandState(int q_id, LazyAEGState* parent);
+        virtual void EvaluateState(int q_id, LazyAEGState* parent);
+        void getNextLazyElement(int q_id, LazyAEGState* state);
+        void insertLazyList(int q_id, LazyAEGState* state, LazyAEGState* parent, int edgeCost, bool isTrueCost, EdgeType edgeType, int snap_midpoint);
+        void putStateInHeap(int q_id, LazyAEGState* state);
+        void updateGoal(int q_id, LazyAEGState* state);
 
         virtual int ImprovePath();
 
-        virtual vector<int> GetSearchPath(int& solcost);
+        virtual vector<vector<int>> GetSearchPath(int g_id, int& solcost);
 
         virtual bool outOfTime();
         virtual void initializeSearch();
         virtual void prepareNextSearchIteration();
-        virtual bool Search(vector<int>& pathIds, int & PathCost);
+        virtual bool Search(vector<vector<int>>& pathIds, int & PathCost);
 
 };
 

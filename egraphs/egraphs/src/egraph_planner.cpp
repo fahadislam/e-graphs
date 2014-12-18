@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2013, Mike Phillips and Maxim Likhachev
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
  *     * Neither the name of the Carnegie Mellon University nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -29,12 +29,14 @@
 #include <egraphs/egraph_planner.h>
 #include <algorithm>
 #include <numeric>
+#include <stdlib.h>
+#include <tf/tf.h>
 
 using namespace std;
 
 template <typename HeuristicType>
 LazyAEGPlanner<HeuristicType>::LazyAEGPlanner(DiscreteSpaceInformation* environment, bool bSearchForward,
-                               EGraphManagerPtr egraph_mgr) :
+                               EGraphManagerPtr egraph_mgr, int num_isls) :
   params(0.0), egraph_mgr_(egraph_mgr){ //, goal_state(NULL) {
   //bforwardsearch = bSearchForward;
   if(!bSearchForward)
@@ -43,26 +45,38 @@ LazyAEGPlanner<HeuristicType>::LazyAEGPlanner(DiscreteSpaceInformation* environm
   environment_ = environment;
   replan_number = 0;
 
+  num_islands = num_isls;
+  heaps.resize(num_islands);
+  incons.resize(num_islands);
+  states.resize(num_islands);  //fadi
+  goal_state.resize(num_islands);
+  island_state_id.resize(num_islands);
+  island_state.resize(num_islands);
+  // egraph_vis_ = egraph_vis;
+
   //goal_state_id = -1;
   start_state_id = -1;
   evaluated_snaps = 0;
+
+  // ros::NodeHandle nh;
+  // marker_pub_expansion = nh.advertise<visualization_msgs::MarkerArray>("visualization_marker_array", 10);  //fadi
 }
 
 template <typename HeuristicType>
-LazyAEGState* LazyAEGPlanner<HeuristicType>::GetState(int id){	
+LazyAEGState* LazyAEGPlanner<HeuristicType>::GetState(int g_id, int id){  //fadi
   //if this stateID is out of bounds of our state vector then grow the list
-  if(id >= int(states.size())){
-    for(int i=states.size(); i<=id; i++)
-      states.push_back(NULL);
+  if(id >= int(states[g_id].size())){
+    for(int i=states[g_id].size(); i<=id; i++)
+      states[g_id].push_back(NULL);
   }
   //if we have never seen this state then create one
-  if(states[id]==NULL){
-    states[id] = new LazyAEGState();
-    states[id]->id = id;
-    states[id]->replan_number = -1;
+  if(states[g_id][id]==NULL){
+    states[g_id][id] = new LazyAEGState();
+    states[g_id][id]->id = id;
+    states[g_id][id]->replan_number = -1;
   }
   //initialize the state if it hasn't been for this call to replan
-  LazyAEGState* s = states[id];
+  LazyAEGState* s = states[g_id][id];
   if(s->replan_number != replan_number){
     s->g = INFINITECOST;
     s->v = INFINITECOST;
@@ -97,7 +111,7 @@ LazyAEGState* LazyAEGPlanner<HeuristicType>::GetState(int id){
 }
 
 template <typename HeuristicType>
-void LazyAEGPlanner<HeuristicType>::ExpandState(LazyAEGState* parent){
+void LazyAEGPlanner<HeuristicType>::ExpandState(int g_id, LazyAEGState* parent){
   bool print = false; //parent->id == 285566;
   if(print)
     printf("expand %d\n",parent->id);
@@ -105,16 +119,21 @@ void LazyAEGPlanner<HeuristicType>::ExpandState(LazyAEGState* parent){
   vector<int> costs;
   vector<bool> isTrueCost;
 
+
+  getchar();
+
+
+
   clock_t getSucc_t0 = clock();
   if(bforwardsearch)
-    environment_->GetLazySuccsWithUniqueIds(parent->id, &children, &costs, &isTrueCost);
+    environment_->GetLazySuccsWithUniqueIds(g_id, parent->id, &children, &costs, &isTrueCost);
   else
     environment_->GetLazyPredsWithUniqueIds(parent->id, &children, &costs, &isTrueCost);
   clock_t getSucc_t1 = clock();
   succsClock += getSucc_t1-getSucc_t0;
 
   vector<EdgeType> edgeTypes(children.size(),EdgeType::NORMAL);
-  
+
   vector<int> snap_midpoints(children.size(),-1);
   if (params.use_egraph){
     //egraph_mgr_->clearSnapSuccessorsCache();
@@ -136,7 +155,7 @@ void LazyAEGPlanner<HeuristicType>::ExpandState(LazyAEGState* parent){
     // to clean it up before the next iteration
     //egraph_mgr_->clearSnapSuccessorsCache();
   }
-  
+
   // make sure our costs are nonzero
   for (auto& cost : costs){
       assert(cost > 0);
@@ -150,9 +169,20 @@ void LazyAEGPlanner<HeuristicType>::ExpandState(LazyAEGState* parent){
   //iterate through children of the parent
   for(int i=0; i<(int)children.size(); i++){
     //printf("  succ %d\n",children[i]);
-    LazyAEGState* child = GetState(children[i]);
-    insertLazyList(child, parent, costs[i], isTrueCost[i], edgeTypes[i], snap_midpoints[i]);
-  } 
+    LazyAEGState* child = GetState(g_id,children[i]);  //fadi
+
+    //check if not expanded in any other queue
+    // bool expanded = false;
+    // for (int j=0;j<num_islands;j++)
+    //   if (j != g_id){
+    //     LazyAEGState* child_other = GetState(j,children[i]);
+    //     if (child_other->v == child_other->g && child_other->v != INFINITECOST) //expanded
+    //       expanded = true;
+    //   }
+    // //
+    // if (expanded == false)
+      insertLazyList(g_id, child, parent, costs[i], isTrueCost[i], edgeTypes[i], snap_midpoints[i]);
+  }
 }
 
 //assumptions:
@@ -160,7 +190,7 @@ void LazyAEGPlanner<HeuristicType>::ExpandState(LazyAEGState* parent){
 //it's minimum f-value is an underestimate (the edge cost from the parent is a guess and needs to be evaluated properly)
 //it hasn't been expanded yet this iteration
 template <typename HeuristicType>
-void LazyAEGPlanner<HeuristicType>::EvaluateState(LazyAEGState* state){
+void LazyAEGPlanner<HeuristicType>::EvaluateState(int g_id, LazyAEGState* state){
   bool print = false; //state->id == 285566;
   if(print)
     printf("evaluate %d (from %d)\n",state->id, state->best_parent->id);
@@ -168,12 +198,12 @@ void LazyAEGPlanner<HeuristicType>::EvaluateState(LazyAEGState* state){
   EdgeType edgeType = state->best_edge_type;
   int snap_midpoint = state->snap_midpoint;
 
-  getNextLazyElement(state);
+  getNextLazyElement(g_id, state);
   //printf("state_ptr=%p\n",state);
   //printf("state_id=%d\n",state->id);
   //printf("parent_ptr=%p\n",parent);
   //printf("parent_id=%d\n",parent->id);
-  
+
   /* Mike replacing victor's code
   Edge snap_edge(parent->id, state->id);
   int trueCost;
@@ -206,12 +236,12 @@ void LazyAEGPlanner<HeuristicType>::EvaluateState(LazyAEGState* state){
   if (print)
       printf("has a true cost of %d\n",trueCost);
   if(trueCost > 0) //if the evaluated true cost is valid (positive), insert it into the lazy list
-    insertLazyList(state,parent,trueCost,true,edgeType,snap_midpoint);
+    insertLazyList(g_id, state,parent,trueCost,true,edgeType,snap_midpoint);
 }
 
 //this should only be used with EvaluateState since it is assuming state hasn't been expanded yet (only evaluated)
 template <typename HeuristicType>
-void LazyAEGPlanner<HeuristicType>::getNextLazyElement(LazyAEGState* state){
+void LazyAEGPlanner<HeuristicType>::getNextLazyElement(int g_id, LazyAEGState* state){
   if(state->lazyList.empty()){
     state->g = INFINITECOST;
     state->best_parent = NULL;
@@ -232,11 +262,11 @@ void LazyAEGPlanner<HeuristicType>::getNextLazyElement(LazyAEGState* state){
     while(!state->lazyList.empty())
       state->lazyList.pop();
   }
-  putStateInHeap(state);
+  putStateInHeap(g_id, state);
 }
 
 template <typename HeuristicType>
-void LazyAEGPlanner<HeuristicType>::insertLazyList(LazyAEGState* state, LazyAEGState* parent, int edgeCost, bool isTrueCost, EdgeType edgeType, int snap_midpoint){
+void LazyAEGPlanner<HeuristicType>::insertLazyList(int g_id, LazyAEGState* state, LazyAEGState* parent, int edgeCost, bool isTrueCost, EdgeType edgeType, int snap_midpoint){
   bool print = false; //state->id == 285566 || parent->id == 285566;
   if(state->v <= parent->v + edgeCost)
     return;
@@ -275,15 +305,15 @@ void LazyAEGPlanner<HeuristicType>::insertLazyList(LazyAEGState* state, LazyAEGS
 
     //this function puts the state into the heap (or updates the position) if we haven't expanded
     //if we have expanded, it will put the state in the incons list (if we haven't already)
-    putStateInHeap(state);
+    putStateInHeap(g_id, state);
   }
   if(print)
     printf("state->id=%d state->g=%d state->h=%d, parent->v=%d edgeCost=%d isTrueCost=%d\n",state->id,state->g,state->h,parent->v,edgeCost,isTrueCost);
 }
 
 template <typename HeuristicType>
-void LazyAEGPlanner<HeuristicType>::putStateInHeap(LazyAEGState* state){
-  updateGoal(state);
+void LazyAEGPlanner<HeuristicType>::putStateInHeap(int g_id, LazyAEGState* state){
+  updateGoal(g_id, state);
   bool print = false; //state->id == 285566;
   //we only allow one expansion per search iteration
   //so insert into heap if not closed yet
@@ -294,9 +324,9 @@ void LazyAEGPlanner<HeuristicType>::putStateInHeap(LazyAEGState* state){
       printf("put state in open with f %lu\n", key.key[0]);
     //if the state is already in the heap, just update its priority
     if(state->heapindex != 0)
-      heap.updateheap(state,key);
+      heaps[g_id].updateheap(state,key);
     else //otherwise add it to the heap
-      heap.insertheap(state,key);
+      heaps[g_id].insertheap(state,key);
   }
   //if the state has already been expanded once for this iteration
   //then add it to the incons list so we can keep track of states
@@ -304,21 +334,21 @@ void LazyAEGPlanner<HeuristicType>::putStateInHeap(LazyAEGState* state){
   else if(!state->in_incons){
     if(print)
       printf("put state in incons\n");
-    incons.push_back(state);
+    incons[g_id].push_back(state);
     state->in_incons = true;
   }
 }
 
 template <typename HeuristicType>
-void LazyAEGPlanner<HeuristicType>::updateGoal(LazyAEGState* state){
-  if(egraph_mgr_->egraph_env_->isGoal(state->id) && state->isTrueCost && state->g < goal_state.g){
+void LazyAEGPlanner<HeuristicType>::updateGoal(int g_id, LazyAEGState* state){
+  if(egraph_mgr_->egraph_env_->isGoal(state->id) && state->isTrueCost && state->g < goal_state[g_id].g){
     //ROS_INFO("updating the goal state");
-    goal_state.id = state->id;
-    goal_state.g = state->g;
-    goal_state.best_parent = state->best_parent;
-    goal_state.best_edge_type = state->best_edge_type;
-    goal_state.snap_midpoint = state->snap_midpoint;
-    goal_state.isTrueCost = true;
+    goal_state[g_id].id = state->id;
+    goal_state[g_id].g = state->g;
+    goal_state[g_id].best_parent = state->best_parent;
+    goal_state[g_id].best_edge_type = state->best_edge_type;
+    goal_state[g_id].snap_midpoint = state->snap_midpoint;
+    goal_state[g_id].isTrueCost = true;
   }
 }
 
@@ -328,71 +358,120 @@ int LazyAEGPlanner<HeuristicType>::ImprovePath(){
 
   //expand states until done
   int expands = 0;
-  CKey min_key = heap.getminkeyheap();
-  while(!heap.emptyheap() && 
-        min_key.key[0] < INFINITECOST && 
-        (goal_state.g > min_key.key[0] || !goal_state.isTrueCost) &&
-        !outOfTime()){
+  vector<CKey> min_key(num_islands);
+  vector<bool> search_reached(num_islands, false);
+  for (int g_id=0; g_id < num_islands; g_id++)
+    min_key[g_id] = heaps[g_id].getminkeyheap();  //fadi
 
-    //get the state		
-    LazyAEGState* state = (LazyAEGState*)heap.deleteminheap();
 
-    if(state->v == state->g){
-      printf("ERROR: consistent state is being expanded\n");
-      printf("id=%d v=%d g=%d isTrueCost=%d lazyListSize=%lu\n",
-              state->id,state->v,state->g,state->isTrueCost,state->lazyList.size());
-      std::cin.get();
-    }
+  while((!heaps[0].emptyheap() &&    //todo
+        min_key[0].key[0] < INFINITECOST &&
+        (goal_state[0].g > min_key[0].key[0] || !goal_state[0].isTrueCost) &&
+        !outOfTime())
+        // ||
+        // (!heaps[1].emptyheap() &&    //todo
+        // min_key[1].key[0] < INFINITECOST &&
+        // (goal_state[1].g > min_key[1].key[0] || !goal_state[1].isTrueCost) &&
+        // !outOfTime())
+        // ||
+        // (!heaps[2].emptyheap() &&    //todo
+        // min_key[2].key[0] < INFINITECOST &&
+        // (goal_state[2].g > min_key[2].key[0] || !goal_state[2].isTrueCost) &&
+        // !outOfTime())
+        ){
 
-    if(state->isTrueCost){
-      if (state->best_parent){
-          /* Mike replacing victor's code
-          Edge edge(state->best_parent->id, state->id);
-          if (egraph_mgr_->snaps_.find(edge) != egraph_mgr_->snaps_.end()){
-            evaluated_snaps++;
+
+    //get the state
+
+    for (int g_id=0; g_id < num_islands; g_id++){
+
+      if (search_reached[g_id] == true)  //todo
+        continue;
+
+      if (!(!heaps[g_id].emptyheap() &&    //todo
+        min_key[g_id].key[0] < INFINITECOST &&
+        (goal_state[g_id].g > min_key[g_id].key[0] || !goal_state[g_id].isTrueCost) &&
+        !outOfTime())){
+        printf("SEARCH %d FOUND PATH\n", g_id);
+        search_reached[g_id] = true;
+        for (int i=0; i < num_islands; i++)  //fadi
+          if(goal_state[i].g < goal_state[i].v){
+            goal_state[i].expanded_best_parent = goal_state[i].best_parent;
+            goal_state[i].expanded_best_edge_type = goal_state[i].best_edge_type;
+            goal_state[i].expanded_snap_midpoint = goal_state[i].snap_midpoint;
+            goal_state[i].v = goal_state[i].g;
           }
-          */
-          if(state->best_edge_type == EdgeType::SNAP)
-            evaluated_snaps++;
+        int PathCost;
+        vector<vector<int>> pathIds;
+        pathIds = GetSearchPath(g_id, PathCost);
+        // egraph_vis_->visualize();
+        egraph_mgr_->setGoal();
+        continue;
       }
 
-      //mark the state as expanded
-      state->v = state->g;
-      state->expanded_best_parent = state->best_parent;
-      state->expanded_best_edge_type = state->best_edge_type;
-      state->expanded_snap_midpoint = state->snap_midpoint;
-      state->iteration_closed = search_iteration;
-      //expand the state
-      expands++;
-      ExpandState(state);
-      if(expands%10000 == 0)
-        printf("expands so far=%u\n", expands);
-    }
-    else //otherwise the state needs to be evaluated for its true cost
-      EvaluateState(state);
 
-    //get the min key for the next iteration
-    min_key = heap.getminkeyheap();
+      LazyAEGState* state = (LazyAEGState*)heaps[g_id].deleteminheap();
+
+      if(state->v == state->g){
+        printf("ERROR: consistent state is being expanded\n");
+        printf("id=%d v=%d g=%d isTrueCost=%d lazyListSize=%lu\n",
+                state->id,state->v,state->g,state->isTrueCost,state->lazyList.size());
+        std::cin.get();
+      }
+
+      if(state->isTrueCost){
+        if (state->best_parent){
+            /* Mike replacing victor's code
+            Edge edge(state->best_parent->id, state->id);
+            if (egraph_mgr_->snaps_.find(edge) != egraph_mgr_->snaps_.end()){
+              evaluated_snaps++;
+            }
+            */
+            if(state->best_edge_type == EdgeType::SNAP)
+              evaluated_snaps++;
+        }
+
+        //mark the state as expanded
+        state->v = state->g;
+        state->expanded_best_parent = state->best_parent;
+        state->expanded_best_edge_type = state->best_edge_type;
+        state->expanded_snap_midpoint = state->snap_midpoint;
+        state->iteration_closed = search_iteration;
+        //expand the state
+        expands++;
+        ExpandState(g_id, state);
+        if(expands%10000 == 0)
+          printf("expands so far=%u\n", expands);
+      }
+      else //otherwise the state needs to be evaluated for its true cost
+        EvaluateState(g_id, state);
+
+      //get the min key for the next iteration
+      min_key[g_id] = heaps[g_id].getminkeyheap(); //todo
+    }
   }
 
   search_expands += expands;
-   
-  if(goal_state.g == INFINITECOST && (heap.emptyheap() || min_key.key[0] >= INFINITECOST))
+
+  // todo
+  if(goal_state[0].g == INFINITECOST && (heaps[0].emptyheap() || min_key[0].key[0] >= INFINITECOST))
     return 0;//solution does not exists
-  if(!heap.emptyheap() && goal_state.g > min_key.key[0])
+  if(!heaps[0].emptyheap() && goal_state[0].g > min_key[0].key[0])
     return 2; //search exited because it ran out of time
   printf("search exited with a solution for eps=%.2f\n", eps*params.epsE);
-  if(goal_state.g < goal_state.v){
-    goal_state.expanded_best_parent = goal_state.best_parent;
-    goal_state.expanded_best_edge_type = goal_state.best_edge_type;
-    goal_state.expanded_snap_midpoint = goal_state.snap_midpoint;
-    goal_state.v = goal_state.g;
-  }
+  for (int g_id=0; g_id < num_islands; g_id++)  //fadi
+    if(goal_state[g_id].g < goal_state[g_id].v){
+      goal_state[g_id].expanded_best_parent = goal_state[g_id].best_parent;
+      goal_state[g_id].expanded_best_edge_type = goal_state[g_id].best_edge_type;
+      goal_state[g_id].expanded_snap_midpoint = goal_state[g_id].snap_midpoint;
+      goal_state[g_id].v = goal_state[g_id].g;
+    }
+
   return 1;
 }
 
 template <typename HeuristicType>
-bool LazyAEGPlanner<HeuristicType>::reconstructSuccs(LazyAEGState* state, 
+bool LazyAEGPlanner<HeuristicType>::reconstructSuccs(LazyAEGState* state,
                                                LazyAEGState*& next_state,
                                                vector<int>* wholePathIds,
                                                vector<int>* costs){
@@ -401,7 +480,7 @@ bool LazyAEGPlanner<HeuristicType>::reconstructSuccs(LazyAEGState* state,
     vector<int> CostV;
     vector<bool> isTrueCost;
     if(bforwardsearch)
-        environment_->GetLazySuccsWithUniqueIds(state->expanded_best_parent->id, &SuccIDV, &CostV, &isTrueCost);
+        environment_->GetLazySuccsWithUniqueIds(0,state->expanded_best_parent->id, &SuccIDV, &CostV, &isTrueCost);  //todo
     else
         environment_->GetLazyPredsWithUniqueIds(state->expanded_best_parent->id, &SuccIDV, &CostV, &isTrueCost);
     int actioncost = INFINITECOST;
@@ -425,99 +504,103 @@ bool LazyAEGPlanner<HeuristicType>::reconstructSuccs(LazyAEGState* state,
 }
 
 template <typename HeuristicType>
-vector<int> LazyAEGPlanner<HeuristicType>::GetSearchPath(int& solcost){
+vector<vector<int>> LazyAEGPlanner<HeuristicType>::GetSearchPath(int g_id, int& solcost){
     clock_t reconstruct_t0 = clock();
 
     bool print = false;
-    vector<int> wholePathIds;
-    vector<int> costs;
+    vector<vector<int>> wholePathIds(num_islands);
+    vector<vector<int>> costs(num_islands);
     LazyAEGState* state;
     LazyAEGState* final_state;
-    if(bforwardsearch){
-        state = &goal_state;
-        final_state = start_state;
-    } else {
-        state = start_state;
-        final_state = &goal_state;
-    } 
 
-    wholePathIds.push_back(state->id);
-    solcost = 0;
-    int shortcut_count = 0;
-
-    while(state->id != final_state->id){
-        if(state->expanded_best_parent == NULL){
-            printf("a state along the path has no parent!\n");
-            assert(false);
-        }
-        if(state->v == INFINITECOST){
-            printf("a state along the path has an infinite g-value!\n");
-            printf("inf state = %d\n",state->id);
-            assert(false);
+    // for (int g_id=0;g_id<num_islands;g_id++){
+      if(bforwardsearch){
+            state = &goal_state[g_id];
+            final_state = island_state[g_id];    //fadi
+        } else {
+            state = island_state[g_id];
+            final_state = &goal_state[g_id];
         }
 
-        LazyAEGState* next_state;
-        if(state->expanded_best_edge_type == EdgeType::SNAP){
-          assert(egraph_mgr_->reconstructSnap(state, next_state, &wholePathIds, &costs));
-          if(print)
-            ROS_INFO("snap edge %d %d %d", costs.back(), state->id, wholePathIds.back());
-        }
-        else if(state->expanded_best_edge_type == EdgeType::NORMAL){
-          bool ret = reconstructSuccs(state, next_state, &wholePathIds, &costs);
-          assert(ret);
-          if(print)
-            ROS_INFO("normal edge %d %d %d", costs.back(), state->id, wholePathIds.back());
-        }
-        else if(state->expanded_best_edge_type == EdgeType::DIRECT_SHORTCUT){
-          int sc_cost;
-          assert(egraph_mgr_->reconstructDirectShortcuts(state, next_state, &wholePathIds, &costs, shortcut_count, sc_cost));
-          if(print)
-            ROS_INFO("shortcut edge %d %d %d", sc_cost, state->id, wholePathIds.back());
-        }
-        else if(state->expanded_best_edge_type == EdgeType::SNAP_DIRECT_SHORTCUT){
-          int totalCost;
-          assert(egraph_mgr_->reconstructSnapShortcut(state, next_state, &wholePathIds, &costs, totalCost));
-          if(print)
-            ROS_INFO("snap shortcut edge %d %d %d", totalCost, state->id, wholePathIds.back());
-        }
-        else
-          assert(false);
-        assert(next_state == state->expanded_best_parent);
-        assert(wholePathIds.back() == state->expanded_best_parent->id);
-        state = next_state;
-    }
+        wholePathIds[g_id].push_back(state->id);
+        solcost = 0;
+        int shortcut_count = 0;
 
-    //if we searched forward then the path reconstruction 
-    //worked backward from the goal, so we have to reverse the path
-    if(bforwardsearch){
-        std::reverse(wholePathIds.begin(), wholePathIds.end());
-        std::reverse(costs.begin(), costs.end());
-    }
-    solcost = std::accumulate(costs.begin(), costs.end(), 0);
+        while(state->id != final_state->id){
+            if(state->expanded_best_parent == NULL){
+                printf("a state along the path has no parent!\n");
+                assert(false);
+            }
+            if(state->v == INFINITECOST){
+                printf("a state along the path has an infinite g-value!\n");
+                printf("inf state = %d\n",state->id);
+                assert(false);
+            }
 
-    clock_t reconstruct_t1 = clock();
-    reconstructTime = double(reconstruct_t1 - reconstruct_t0)/CLOCKS_PER_SEC;
+            LazyAEGState* next_state;
+            if(state->expanded_best_edge_type == EdgeType::SNAP){
+              assert(egraph_mgr_->reconstructSnap(state, next_state, &wholePathIds[g_id], &costs[g_id]));
+              if(print)
+                ROS_INFO("snap edge %d %d %d", costs[g_id].back(), state->id, wholePathIds[g_id].back());
+            }
+            else if(state->expanded_best_edge_type == EdgeType::NORMAL){
+              bool ret = reconstructSuccs(state, next_state, &wholePathIds[g_id], &costs[g_id]);
+              assert(ret);
+              if(print)
+                ROS_INFO("normal edge %d %d %d", costs[g_id].back(), state->id, wholePathIds[g_id].back());
+            }
+            else if(state->expanded_best_edge_type == EdgeType::DIRECT_SHORTCUT){
+              int sc_cost;
+              assert(egraph_mgr_->reconstructDirectShortcuts(state, next_state, &wholePathIds[g_id], &costs[g_id], shortcut_count, sc_cost));
+              if(print)
+                ROS_INFO("shortcut edge %d %d %d", sc_cost, state->id, wholePathIds[g_id].back());
+            }
+            else if(state->expanded_best_edge_type == EdgeType::SNAP_DIRECT_SHORTCUT){
+              int totalCost;
+              assert(egraph_mgr_->reconstructSnapShortcut(state, next_state, &wholePathIds[g_id], &costs[g_id], totalCost));
+              if(print)
+                ROS_INFO("snap shortcut edge %d %d %d", totalCost, state->id, wholePathIds[g_id].back());
+            }
+            else
+              assert(false);
+            assert(next_state == state->expanded_best_parent);
+            assert(wholePathIds[g_id].back() == state->expanded_best_parent->id);
+            state = next_state;
+        }
+        //if we searched forward then the path reconstruction
+        //worked backward from the goal, so we have to reverse the path
+        if(bforwardsearch){
+            std::reverse(wholePathIds[g_id].begin(), wholePathIds[g_id].end());
+            std::reverse(costs[g_id].begin(), costs[g_id].end());
+        }
+        solcost = std::accumulate(costs[g_id].begin(), costs[g_id].end(), 0);
 
-    /*
-    // if we're using lazy evaluation, we always want to feedback the path
-    // regardless if it's valid
-    if (params.feedback_path || params.use_lazy_validation){
-        egraph_mgr_->storeLastPath(wholePathIds, costs);
-    }
-    if (params.use_lazy_validation){
-        egraph_mgr_->feedbackLastPath();
-    }
-    */
+        clock_t reconstruct_t1 = clock();
+        reconstructTime = double(reconstruct_t1 - reconstruct_t0)/CLOCKS_PER_SEC;
 
-    clock_t feedback_t0 = clock();
-    if (params.feedback_path){
-        egraph_mgr_->storeLastPath(wholePathIds, costs);
-        egraph_mgr_->feedbackLastPath();
-    }
-    clock_t feedback_t1 = clock();
-    feedbackPathTime = double(feedback_t1-feedback_t0)/CLOCKS_PER_SEC;
-    //egraph_mgr_->printVector(wholePathIds);
+        /*
+        // if we're using lazy evaluation, we always want to feedback the path
+        // regardless if it's valid
+        if (params.feedback_path || params.use_lazy_validation){
+            egraph_mgr_->storeLastPath(wholePathIds, costs);
+        }
+        if (params.use_lazy_validation){
+            egraph_mgr_->feedbackLastPath();
+        }
+        */
+
+        clock_t feedback_t0 = clock();
+        if (params.feedback_path){
+            egraph_mgr_->storeLastPath(wholePathIds[g_id], costs[g_id]);
+            egraph_mgr_->feedbackLastPath();
+        }
+        clock_t feedback_t1 = clock();
+        feedbackPathTime = double(feedback_t1-feedback_t0)/CLOCKS_PER_SEC;
+        //egraph_mgr_->printVector(wholePathIds);
+
+    // }
     return wholePathIds;
+
 }
 
 template <typename HeuristicType>
@@ -536,7 +619,7 @@ bool LazyAEGPlanner<HeuristicType>::outOfTime(){
   //we are out of time if:
          //we used up the max time limit OR
          //we found some solution and used up the minimum time limit
-  return time_used >= params.max_time || 
+  return time_used >= params.max_time ||
          (use_repair_time && eps_satisfied != INFINITECOST && time_used >= params.repair_time);
 }
 
@@ -554,56 +637,69 @@ void LazyAEGPlanner<HeuristicType>::initializeSearch(){
   feedbackPathTime = 0;
 
   //clear open list, incons list, and stats list
-  heap.makeemptyheap();
-  incons.clear();
+
+  for (int g_id = 0; g_id < num_islands; ++g_id)
+  {
+    heaps[g_id].makeemptyheap();
+    incons[g_id].clear();
+  }
+
   stats.clear();
 
   //initialize epsilon variable
   eps = params.initial_eps;
   eps_satisfied = INFINITECOST;
-
   //call get state to initialize the start and goal states
   //double t0 = ros::Time::now().toSec();
   //goal_state = GetState(goal_state_id);
   //if (!goal_state){
     //goal_state = GetState(goal_state_id);
   //} else {
-    goal_state.g = INFINITECOST;
-    goal_state.v = INFINITECOST;
-    goal_state.iteration_closed = -1;
-    goal_state.replan_number = replan_number;
-    goal_state.best_parent = NULL;
-    goal_state.expanded_best_parent = NULL;
-    goal_state.best_edge_type = EdgeType::NONE;
-    goal_state.expanded_best_edge_type = EdgeType::NONE;
-    goal_state.snap_midpoint = -1;
-    goal_state.expanded_snap_midpoint = -1;
-    goal_state.heapindex = 0;
-    goal_state.in_incons = false;
-    goal_state.isTrueCost = true;
+    for (int g_id = 0; g_id < num_islands; ++g_id){
+      goal_state[g_id].g = INFINITECOST;
+      goal_state[g_id].v = INFINITECOST;
+      goal_state[g_id].iteration_closed = -1;
+      goal_state[g_id].replan_number = replan_number;
+      goal_state[g_id].best_parent = NULL;
+      goal_state[g_id].expanded_best_parent = NULL;
+      goal_state[g_id].best_edge_type = EdgeType::NONE;
+      goal_state[g_id].expanded_best_edge_type = EdgeType::NONE;
+      goal_state[g_id].snap_midpoint = -1;
+      goal_state[g_id].expanded_snap_midpoint = -1;
+      goal_state[g_id].heapindex = 0;
+      goal_state[g_id].in_incons = false;
+      goal_state[g_id].isTrueCost = true;
+    }
+
 
   //}
-  start_state = GetState(start_state_id);
+  for (int g_id=0; g_id < num_islands; g_id++)
+    {island_state[g_id] = GetState(g_id, island_state_id[g_id]);
+        goal_state[g_id].h = 0;}
 
   // needed to add this because GetState calls the heuristic function on the
   // goal state before the heuristic has been initialized.
-  goal_state.h = 0;
+
 
   //put start state in the heap
-  start_state->g = 0;
-  ROS_INFO("start state heuristic is %d", start_state->h);
-  assert(start_state->h >= 0);
-  CKey key;
-  key.key[0] = eps*start_state->h;
-  heap.insertheap(start_state, key);
 
+  //fadi
+
+  for (int g_id=0; g_id < num_islands; g_id++){
+    island_state[g_id]->g = 0;
+    ROS_INFO("start state heuristic is %d", island_state[g_id]->h);
+    assert(island_state[g_id]->h >= 0);
+    CKey key;
+    key.key[0] = eps*island_state[g_id]->h;
+    heaps[g_id].insertheap(island_state[g_id], key);
+  }
   //ensure heuristics are up-to-date
   //environment_->EnsureHeuristicsUpdated((bforwardsearch==true));
   //printf("computing heuristic took %f sec\n", ros::Time::now().toSec()-t0);
 }
 
 template <typename HeuristicType>
-bool LazyAEGPlanner<HeuristicType>::Search(vector<int>& pathIds, int& PathCost){
+bool LazyAEGPlanner<HeuristicType>::Search(vector<vector<int>>& pathIds, int& PathCost){
   CKey key;
   TimeStarted = clock();
 
@@ -626,8 +722,8 @@ bool LazyAEGPlanner<HeuristicType>::Search(vector<int>& pathIds, int& PathCost){
     double delta_time = double(clock()-before_time)/CLOCKS_PER_SEC;
 
     //print the bound, expands, and time for that iteration
-    printf("bound=%f expands=%d cost=%d time=%.2f\n", 
-        eps_satisfied*params.epsE, delta_expands, goal_state.g, delta_time);
+    printf("bound=%f expands=%d cost=%d time=%.2f\n",
+        eps_satisfied*params.epsE, delta_expands, goal_state[0].g, delta_time);
 
     //update stats
     totalExpands += delta_expands;
@@ -635,7 +731,7 @@ bool LazyAEGPlanner<HeuristicType>::Search(vector<int>& pathIds, int& PathCost){
     tempStat.eps = eps_satisfied;
     tempStat.expands = delta_expands;
     tempStat.time = delta_time;
-    tempStat.cost = goal_state.g;
+    tempStat.cost = goal_state[0].g;
     stats.push_back(tempStat);
 
     //no solution exists
@@ -652,7 +748,7 @@ bool LazyAEGPlanner<HeuristicType>::Search(vector<int>& pathIds, int& PathCost){
     prepareNextSearchIteration();
   }
 
-  if(goal_state.g == INFINITECOST){
+  if(goal_state[0].g == INFINITECOST){
     printf("could not find a solution (ran out of time)\n");
     return false;
   }
@@ -660,7 +756,7 @@ bool LazyAEGPlanner<HeuristicType>::Search(vector<int>& pathIds, int& PathCost){
     printf("WARNING: a solution was found but we don't have quality bound for it!\n");
 
   printf("solution found\n");
-  pathIds = GetSearchPath(PathCost);
+  // pathIds = GetSearchPath(PathCost);
 
   return true;
 }
@@ -674,21 +770,23 @@ void LazyAEGPlanner<HeuristicType>::prepareNextSearchIteration(){
 
   //dump the inconsistent states into the open list
   CKey key;
-  while(!incons.empty()){
-    LazyAEGState* s = incons.back();
-    incons.pop_back();
-    s->in_incons = false;
-    key.key[0] = s->g + int(eps * s->h);
-    heap.insertheap(s,key);
-  }
+  for (int g_id = 0; g_id < num_islands; ++g_id)
+  {
+    while(!incons[g_id].empty()){
+      LazyAEGState* s = incons[g_id].back();
+      incons[g_id].pop_back();
+      s->in_incons = false;
+      key.key[0] = s->g + int(eps * s->h);
+      heaps[g_id].insertheap(s,key);
+    }
 
-  //recompute priorities for states in OPEN and reorder it
-  for (int i=1; i<=heap.currentsize; ++i){
-    LazyAEGState* state = (LazyAEGState*)heap.heap[i].heapstate;
-    heap.heap[i].key.key[0] = state->g + int(eps * state->h); 
+    //recompute priorities for states in OPEN and reorder it
+    for (int i=1; i<=heaps[g_id].currentsize; ++i){
+      LazyAEGState* state = (LazyAEGState*)heaps[g_id].heap[i].heapstate;
+      heaps[g_id].heap[i].key.key[0] = state->g + int(eps * state->h);
+    }
+    heaps[g_id].makeheap();
   }
-  heap.makeheap();
-
   search_iteration++;
 }
 
@@ -701,20 +799,20 @@ void LazyAEGPlanner<HeuristicType>::interrupt(){
 }
 
 template <typename HeuristicType>
-int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGraphReplanParams p){
+int LazyAEGPlanner<HeuristicType>::replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams p){
   int solcost;
   return replan(solution_stateIDs_V, p, &solcost);
 }
 
 template <typename HeuristicType>
-int LazyAEGPlanner<HeuristicType>::replan(int start, vector<int>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
-  set_start(start);
+int LazyAEGPlanner<HeuristicType>::replan(int start, vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
+  set_start(start); //todo
   //set_goal(goal);
   return replan(solution_stateIDs_V, p, solcost);
 }
 
 template <typename HeuristicType>
-int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
+int LazyAEGPlanner<HeuristicType>::replan(vector<vector<int>>* solution_stateIDs_V, EGraphReplanParams p, int* solcost){
   clock_t replan_t0 = clock();
   printf("planner: replan called\n");
   params = p;
@@ -734,7 +832,7 @@ int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGra
   }
 
   //plan
-  vector<int> pathIds; 
+  vector<vector<int>> pathIds;
   int PathCost;
   bool solnFound = Search(pathIds, PathCost);
 
@@ -753,10 +851,10 @@ int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGra
     printf("Solution found!\n");
   else
     printf("Solution not found...\n");
-  printf("total time=%.2f total time without counting adding new path=%.2f\n", 
+  printf("total time=%.2f total time without counting adding new path=%.2f\n",
           totalPlanTime, totalPlanTime-feedbackPathTime);
-  printf("total expands=%d solution cost=%d\n", 
-          totalExpands, goal_state.g);
+  printf("total expands=%d solution cost=%d\n",
+          totalExpands, goal_state[0].g);
   printf("time breakdown: heuristic set goal  = %.2f\n", heuristicSetGoalTime);
   printf("                heuristic           = %.2f\n", double(heuristicClock)/CLOCKS_PER_SEC);
   printf("                generate successors = %.2f\n", double(succsClock)/CLOCKS_PER_SEC);
@@ -770,14 +868,14 @@ int LazyAEGPlanner<HeuristicType>::replan(vector<int>* solution_stateIDs_V, EGra
   stat_map_["total_time"] = totalPlanTime;
   stat_map_["total_time_without_feedback"] = totalPlanTime-feedbackPathTime;
   stat_map_["expands"] = totalExpands;
-  stat_map_["solution_cost"] = goal_state.g;
+  stat_map_["solution_cost"] = goal_state[0].g;
   stat_map_["heuristic_set_goal_time"] = heuristicSetGoalTime;
   stat_map_["heuristic_time"] = double(heuristicClock)/CLOCKS_PER_SEC;
   stat_map_["generate_successors_time"] = double(succsClock)/CLOCKS_PER_SEC;
   stat_map_["shortcuts_time"] = double(shortcutClock)/CLOCKS_PER_SEC;
   stat_map_["path_reconstruction_time"] = reconstructTime;
   stat_map_["feedback_path_time"] = feedbackPathTime;
-         
+
   return (int)solnFound;
 }
 
@@ -809,11 +907,22 @@ template <typename HeuristicType>
 int LazyAEGPlanner<HeuristicType>::set_start(int id){
   //printf("planner: setting start to %d\n", id);
   //if(bforwardsearch)
-    start_state_id = id;
+  // for (int g_id=0; g_id < num_islands; g_id++)
+  //  island_state_id[g_id] = id;
+
+
+  start_state_id = id;    //todo
   //else
     //goal_state_id = id;
   return 1;
 }
+
+template <typename HeuristicType>
+int LazyAEGPlanner<HeuristicType>::set_islands(int g_id, int id){
+  island_state_id[g_id] = id;
+  return 1;
+}
+
 
 template <typename HeuristicType>
 void LazyAEGPlanner<HeuristicType>::feedback_last_path(){

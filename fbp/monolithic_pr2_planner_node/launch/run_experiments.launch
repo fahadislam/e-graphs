@@ -30,7 +30,7 @@
   </node>
 
   <param name="robot_description" command="$(find xacro)/xacro.py '$(find pr2_description)/robots/pr2.urdf.xacro'" />
-  
+
   <node pkg="monolithic_pr2_planner_node" type="node" name="monolithic_pr2_planner_node" output="screen" >
     <!-- track-origins=yes -->
       <param name="use_new_heuristics" value="true" />
@@ -47,7 +47,7 @@
       <param name="egraph_filename" value="$(find monolithic_pr2_planner_node)/experiments/fbp_egraph.eg" />
       <!-- <param name="egraph_filename" value="" /> -->
   </node>
-  
+
   <node pkg="tf" type="static_transform_publisher" name="map_to_base_broadcaster" args="0 0 0 0 0 0 map base_link 100" />
 
   <!-- <node pkg="monolithic_pr2_planner_node" type="runTests" name="runTests" args="$(find monolithic_pr2_planner_node)/experiments/start_goals.yaml" /> -->

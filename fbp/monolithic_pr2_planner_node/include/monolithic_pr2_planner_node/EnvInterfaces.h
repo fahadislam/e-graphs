@@ -31,7 +31,7 @@ namespace monolithic_pr2_planner_node {
             EnvInterfaces(boost::shared_ptr<monolithic_pr2_planner::EGraphEnvironment> env,
                 ros::NodeHandle nh);
             void getParams();
-            bool planPathCallback(GetMobileArmPlan::Request &req, 
+            bool planPathCallback(GetMobileArmPlan::Request &req,
                                   GetMobileArmPlan::Response &res);
             void bindPlanPathToEnv(std::string service_name);
             void bindExperimentToEnv(std::string service_name);
@@ -76,7 +76,9 @@ namespace monolithic_pr2_planner_node {
 
             ros::Subscriber interrupt_sub_;
             boost::mutex mutex;
-            
+
+            int num_islands;    //fadi
+
             // Doesn't have the need to store the Costmap2D object. Simply has
 // to update the costmap of the heurMgr.
             std::unique_ptr<costmap_2d::Costmap2DROS> m_costmap_ros;

@@ -2,7 +2,7 @@
 #include <monolithic_pr2_planner/Constants.h>
 #include <egraphs/egraph_stat_writer.h>
 
-enum MenuItems{PLAN=1,PLAN_AND_FEEDBACK,PLAN_WITH_EGRAPHS,PLAN_WITH_EGRAPHS_AND_FEEDBACK,INTERRUPT,WRITE_TO_FILE};
+enum MenuItems{SET_ISLAND=1,PLAN,PLAN_AND_FEEDBACK,PLAN_WITH_EGRAPHS,PLAN_WITH_EGRAPHS_AND_FEEDBACK,INTERRUPT,WRITE_TO_FILE};
 
 using namespace std;
 
@@ -31,6 +31,24 @@ void ControlPlanner::callPlanner(){
 
 void ControlPlanner::processFeedback(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
   if(feedback->event_type == visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT){
+    if(feedback->menu_entry_id == MenuItems::SET_ISLAND){   //fadi
+      visualization_msgs::InteractiveMarker start_base_marker;
+      int_marker_server->get("start_base",start_base_marker);
+      vector<double> start_base(4,0);
+      start_base[0] = start_base_marker.pose.position.x;
+      start_base[1] = start_base_marker.pose.position.y;
+      start_base[2] = torso_z;
+      start_base[3] = tf::getYaw(start_base_marker.pose.orientation);
+
+      visualization_msgs::InteractiveMarker start_hand_marker;
+      int_marker_server->get("start_hand",start_hand_marker);
+
+      rarm_islands.insert(rarm_islands.end(), start_angles0.begin(), start_angles0.end());
+      larm_islands.insert(larm_islands.end(), angles1.begin(), angles1.end());
+      body_islands.insert(body_islands.end(), start_base.begin(), start_base.end());
+
+    }
+    else
     if(feedback->menu_entry_id == MenuItems::PLAN ||
         feedback->menu_entry_id == MenuItems::PLAN_AND_FEEDBACK ||
         feedback->menu_entry_id == MenuItems::PLAN_WITH_EGRAPHS ||
@@ -65,6 +83,11 @@ void ControlPlanner::processFeedback(const visualization_msgs::InteractiveMarker
       req.larm_goal = angles1;
       req.body_goal = goal_base;
 
+      //island configurations     //fadi
+      req.island.pose = start_hand_marker.pose;
+      req.rarm_island = rarm_islands;
+      req.larm_island = larm_islands;
+      req.body_island = body_islands;
 
       //position of the wrist in the object's frame
       req.rarm_object.pose.position.x = 0;
@@ -82,7 +105,7 @@ void ControlPlanner::processFeedback(const visualization_msgs::InteractiveMarker
       req.larm_object.pose.orientation.z = 0;
       req.larm_object.pose.orientation.w = 1;
 
-      req.xyz_tolerance = .04;
+    req.xyz_tolerance = .04;
       req.roll_tolerance = .1;
       req.pitch_tolerance = .1;
       req.yaw_tolerance = .1;
@@ -213,7 +236,7 @@ void ControlPlanner::processFeedback(const visualization_msgs::InteractiveMarker
       string ns( is_start ? "start" : "goal" );
       int color = is_start ? 85 : 0;
       pviz.visualizeRobot(*angles0, angles1, base, torso_z, color, ns, 0, false);
-      
+
       //snap the interative gripper marker back on the pr2 in the last valid pose
       visualization_msgs::InteractiveMarker r_gripper_marker;
       string gripper_name( is_start ? "start_hand" : "goal_hand" );
@@ -592,7 +615,8 @@ ControlPlanner::ControlPlanner(){
     // tell the server to call processFeedback() when feedback arrives for it
     int_marker_server->insert(int_marker, boost::bind(&ControlPlanner::processFeedback, this, _1));
   }
-  
+
+  menu_handler.insert("Set Island", boost::bind(&ControlPlanner::processFeedback, this, _1)); //fadi
   menu_handler.insert("Plan", boost::bind(&ControlPlanner::processFeedback, this, _1));
   menu_handler.insert("Plan and feedback", boost::bind(&ControlPlanner::processFeedback, this, _1));
   menu_handler.insert("Plan with E-Graphs", boost::bind(&ControlPlanner::processFeedback, this, _1));
@@ -613,7 +637,7 @@ ControlPlanner::ControlPlanner(){
 }
 
 ControlPlanner::~ControlPlanner(){
-  
+
 }
 
 

@@ -34,13 +34,13 @@ namespace monolithic_pr2_planner {
             }
 
             virtual void GetSuccs(int sourceStateID, vector<int>* succIDs, vector<int>* costs);
-            virtual void GetLazySuccsWithUniqueIds(int sourceStateID, vector<int>* succIDs, 
+            virtual void GetLazySuccsWithUniqueIds(int g_id, int sourceStateID, vector<int>* succIDs,
                           vector<int>* costs, std::vector<bool>* isTrueCost);
             virtual int GetTrueCost(int parentID, int childID);
             void reset();
 
         protected:
-            bool setStartGoal(SearchRequestPtr search_request, 
+            bool setStartGoal(SearchRequestPtr search_request,
                               int& start_id, int& goal_id);
             bool setCompleteStartGoal(SearchRequestPtr search_request,
                                        int& start_id, int& goal_id);
